@@ -67,25 +67,30 @@
     padding: 14px;
   }
   .panel + .panel { margin-top: 12px; }
-  .presets { display: flex; flex-wrap: wrap; gap: 8px; }
-  .presets button, .tools button, .rank {
+  .tools button, .rank {
     min-height: 44px;
     border: 1px solid var(--primary);
     background: var(--panel);
     color: var(--primary);
     padding: 8px 10px;
   }
-  .presets button[aria-pressed="true"] {
-    background: var(--primary);
-    color: var(--on-primary);
+  .group {
+    margin: 16px 0 8px;
+    color: var(--hint);
+    font-size: 0.8rem;
+    font-weight: 650;
   }
+  .group:first-of-type { margin-top: 0; }
   .field { margin-top: 14px; }
-  .field-head, .check, .select-label {
+  .group + .field { margin-top: 0; }
+  .field-head, .check, .select-label, .label {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
   }
+  .field-head, .select-label { justify-content: space-between; }
+  .label { justify-content: flex-start; min-height: 44px; }
+  .icon { width: 20px; height: 20px; flex: none; color: var(--primary); }
   .value { font-variant-numeric: tabular-nums; font-weight: 650; }
   .hint { color: var(--hint); font-size: 0.875rem; margin-top: 4px; }
   .dual { position: relative; height: 36px; margin-top: 8px; }
@@ -282,7 +287,7 @@
 <header class="top">
   <div>
     <h1>台灣舒適度地圖</h1>
-    <p class="lede">拖動你覺得舒服的日最高溫，再勾選在意的天氣。顏色是 1991–2020 年平均每年有幾天同時符合。</p>
+    <p class="lede">拖動日夜都舒服的溫度與海拔，再勾選在意的天氣。顏色是 1991–2020 年平均每年有幾天同時符合。</p>
   </div>
   <dl class="kpi">
     <div><dt>中位數</dt><dd id="kpi-mid">–</dd></div>
@@ -296,48 +301,48 @@
   <aside>
     <section class="panel">
       <h2>你的舒適條件</h2>
-      <div class="presets" role="group" aria-label="快捷口徑">
-        <button type="button" data-lo="20" data-hi="28" aria-pressed="true">台灣戶外</button>
-        <button type="button" data-lo="10" data-hi="29" aria-pressed="false">貼文 50–85°F</button>
-        <button type="button" data-lo="10" data-hi="25" aria-pressed="false">留言 50–77°F</button>
-      </div>
+      <h3 class="group">溫度與海拔</h3>
       <div class="field">
         <div class="field-head">
-          <span id="tmax-label">日最高溫</span>
+          <span class="label" id="tmax-label">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5.5a2 2 0 1 1 4 0v9a3.5 3.5 0 1 1-4 0z" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="12" cy="17.5" r="1.2" fill="currentColor"/></svg>
+            日夜氣溫
+          </span>
           <span class="value" id="tmax-read">20–28°C</span>
         </div>
         <div class="dual" id="tmax-dual">
           <div class="dual-track"></div>
           <div class="dual-fill"></div>
-          <input id="tmax-lo" type="range" min="-5" max="42" step="0.5" value="20" aria-label="日最高溫下限">
-          <input id="tmax-hi" type="range" min="-5" max="42" step="0.5" value="28" aria-label="日最高溫上限">
+          <input id="tmax-lo" type="range" min="-20" max="42" step="0.5" value="20" aria-label="日夜氣溫下限">
+          <input id="tmax-hi" type="range" min="-20" max="42" step="0.5" value="28" aria-label="日夜氣溫上限">
         </div>
-        <p class="hint" id="tmax-f">華氏約 68–82°F。未勾選的項目不參與篩選。</p>
+        <p class="hint" id="tmax-f">日最高溫與日最低溫都要落在這個區間。華氏約 68–82°F。</p>
       </div>
-      <label class="check"><input id="use-tmin" type="checkbox"><span>晚上氣溫也要落在區間內</span></label>
-      <div class="extra" id="tmin-extra" hidden>
-        <div class="field-head"><span>日最低溫</span><span class="value" id="tmin-read">15–24°C</span></div>
-        <div class="dual" id="tmin-dual">
+      <div class="field">
+        <div class="field-head">
+          <span class="label" id="elev-label">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l6.5-9 3.2 4.2L16 9l5 9H3z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+            海拔
+          </span>
+          <span class="value" id="elev-read">-50–2400 公尺</span>
+        </div>
+        <div class="dual" id="elev-dual">
           <div class="dual-track"></div>
           <div class="dual-fill"></div>
-          <input id="tmin-lo" type="range" min="-5" max="42" step="0.5" value="15" aria-label="日最低溫下限">
-          <input id="tmin-hi" type="range" min="-5" max="42" step="0.5" value="24" aria-label="日最低溫上限">
+          <input id="elev-lo" type="range" min="-50" max="2400" step="50" value="-50" aria-label="海拔下限">
+          <input id="elev-hi" type="range" min="-50" max="2400" step="50" value="2400" aria-label="海拔上限">
         </div>
+        <p class="hint">範圍外的鄉鎮變灰，不計入排名。</p>
       </div>
-      <label class="check"><input id="use-app" type="checkbox"><span>不要悶</span></label>
-      <div class="extra" id="app-extra" hidden>
-        <label for="app-max">日平均露點上限 <span class="value" id="app-read">18°C</span></label>
-        <input id="app-max" class="single" type="range" min="0" max="26" step="0.5" value="18">
-        <p class="hint">露點是日平均，不是下午最高。山區會再依高度降低。</p>
-      </div>
-      <label class="check"><input id="use-dry" type="checkbox"><span>不要下雨</span></label>
+      <h3 class="group">天氣</h3>
+      <label class="check"><input id="use-dry" type="checkbox" checked><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16a4 4 0 0 1-.4-8 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 18 16" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 18.5l-1 2M12 18.5l-1 2M16 18.5l-1 2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg><span>不要下雨</span></label>
       <p class="hint">勾選後，日雨量要小於 1 毫米才算。</p>
-      <label class="check"><input id="use-sun" type="checkbox"><span>要出太陽</span></label>
-      <div class="extra" id="sun-extra" hidden>
+      <label class="check"><input id="use-sun" type="checkbox" checked><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg><span>要出太陽</span></label>
+      <div class="extra" id="sun-extra">
         <label for="sun-min">日照至少 <span class="value" id="sun-read">6 小時</span></label>
         <input id="sun-min" class="single" type="range" min="1" max="12" step="0.5" value="6">
       </div>
-      <label class="check"><input id="use-wind" type="checkbox"><span>風不要太大</span></label>
+      <label class="check"><input id="use-wind" type="checkbox"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5M3 12h15a2.5 2.5 0 1 1-2.5 2.5M3 16h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg><span>風不要太大</span></label>
       <div class="extra" id="wind-extra" hidden>
         <label for="wind-max">日最大風速上限 <span class="value" id="wind-read">30 km/h</span></label>
         <input id="wind-max" class="single" type="range" min="5" max="70" step="1" value="30">
@@ -405,8 +410,9 @@ const $ = (id) => document.getElementById(id);
 const banner = $('banner');
 const tmaxLo = $('tmax-lo');
 const tmaxHi = $('tmax-hi');
-const tminLo = $('tmin-lo');
-const tminHi = $('tmin-hi');
+const elevLo = $('elev-lo');
+const elevHi = $('elev-hi');
+const OUT_FILL = '#E2E8F0';
 
 function colorFor(days) {
   const x = Math.max(0, Math.min(365, days));
@@ -632,13 +638,8 @@ function boot(meta, geo, buffer) {
 
   function readControls() {
     return {
-      tmaxLo: readNumber(tmaxLo),
-      tmaxHi: readNumber(tmaxHi),
-      useTmin: $('use-tmin').checked,
-      tminLo: readNumber(tminLo),
-      tminHi: readNumber(tminHi),
-      useApp: $('use-app').checked,
-      appMax: readNumber($('app-max')),
+      tempLo: readNumber(tmaxLo),
+      tempHi: readNumber(tmaxHi),
       useDry: $('use-dry').checked,
       useSun: $('use-sun').checked,
       sunMin: readNumber($('sun-min')),
@@ -650,15 +651,10 @@ function boot(meta, geo, buffer) {
   function dayOk(controls, cell, day) {
     const base = cell * nDays + day;
     const high = decTemp(planes[0][base]);
-    if (high === null || high < controls.tmaxLo || high > controls.tmaxHi) return false;
-    if (controls.useTmin) {
-      const low = decTemp(planes[1][base]);
-      if (low === null || low < controls.tminLo || low > controls.tminHi) return false;
-    }
-    if (controls.useApp) {
-      const feel = decTemp(planes[2][base]);
-      if (feel === null || feel > controls.appMax) return false;
-    }
+    const low = decTemp(planes[1][base]);
+    if (high === null || low === null) return false;
+    if (high < controls.tempLo || high > controls.tempHi) return false;
+    if (low < controls.tempLo || low > controls.tempHi) return false;
     if (controls.useDry) {
       const rain = planes[3][base];
       if (rain === 255 || rain >= 1) return false;
@@ -695,19 +691,17 @@ function boot(meta, geo, buffer) {
     const lo = readNumber(tmaxLo);
     const hi = readNumber(tmaxHi);
     $('tmax-read').textContent = `${lo}–${hi}°C`;
-    $('tmax-f').textContent = `華氏約 ${fahrenheit(lo)}–${fahrenheit(hi)}°F。未勾選的項目不參與篩選。`;
-    $('tmin-read').textContent = `${readNumber(tminLo)}–${readNumber(tminHi)}°C`;
-    $('app-read').textContent = `${readNumber($('app-max'))}°C`;
+    $('tmax-f').textContent = `日最高溫與日最低溫都要落在這個區間。華氏約 ${fahrenheit(lo)}–${fahrenheit(hi)}°F。`;
+    $('elev-read').textContent = `${readNumber(elevLo)}–${readNumber(elevHi)} 公尺`;
     $('sun-read').textContent = `${readNumber($('sun-min'))} 小時`;
     $('wind-read').textContent = `${readNumber($('wind-max'))} km/h`;
     paintDual(tmaxLo, tmaxHi, $('tmax-dual'));
-    paintDual(tminLo, tminHi, $('tmin-dual'));
-    const pressed = !$('use-tmin').checked && !$('use-app').checked && !$('use-dry').checked
-      && !$('use-sun').checked && !$('use-wind').checked;
-    for (const button of document.querySelectorAll('.presets button')) {
-      const match = pressed && Number(button.dataset.lo) === lo && Number(button.dataset.hi) === hi;
-      button.setAttribute('aria-pressed', match ? 'true' : 'false');
-    }
+    paintDual(elevLo, elevHi, $('elev-dual'));
+  }
+
+  function townInRange(town) {
+    const elev = meta.cells[town.cell].elev;
+    return elev >= readNumber(elevLo) && elev <= readNumber(elevHi);
   }
 
   function fillList(list, rows) {
@@ -745,9 +739,12 @@ function boot(meta, geo, buffer) {
     $('place-name').textContent = town.name;
     $('place-days').textContent = `每年 ${days.toFixed(1)} 天`;
     const elev = meta.cells[town.cell].elev;
-    $('place-note').textContent = mates > 1
+    const place = mates > 1
       ? `網格海拔約 ${elev} 公尺，和另外 ${mates - 1} 個鄉鎮共用這一格，所以天數相同。`
       : `網格海拔約 ${elev} 公尺。`;
+    $('place-note').textContent = townInRange(town)
+      ? place
+      : `${place}海拔不在範圍內，不計入排名。`;
     select.value = town.code;
     const series = monthScores[town.cell];
     const peak = Math.max(8, ...series);
@@ -774,24 +771,27 @@ function boot(meta, geo, buffer) {
     for (const town of meta.towns) {
       const path = paths.get(town.code);
       if (!path) continue;
-      path.setAttribute('fill', colorFor(scores[town.cell]));
+      path.setAttribute('fill', townInRange(town) ? colorFor(scores[town.cell]) : OUT_FILL);
     }
-    const ranked = meta.towns.map((town) => ({...town, days: scores[town.cell]}));
+    const ranked = meta.towns
+      .filter(townInRange)
+      .map((town) => ({...town, days: scores[town.cell]}));
     ranked.sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, 'zh-Hant'));
     const values = ranked.map((town) => town.days).sort((a, b) => a - b);
-    const mid = values.length % 2
+    const mid = values.length === 0 ? null : values.length % 2
       ? values[(values.length - 1) / 2]
       : (values[values.length / 2 - 1] + values[values.length / 2]) / 2;
-    $('kpi-mid').textContent = mid.toFixed(1);
-    $('kpi-max').textContent = values[values.length - 1].toFixed(1);
-    $('kpi-min').textContent = values[0].toFixed(1);
+    $('kpi-mid').textContent = mid === null ? '–' : mid.toFixed(1);
+    $('kpi-max').textContent = values.length ? values[values.length - 1].toFixed(1) : '–';
+    $('kpi-min').textContent = values.length ? values[0].toFixed(1) : '–';
     fillList($('top-list'), ranked.slice(0, 10));
     fillList($('bottom-list'), ranked.slice(-10).reverse());
     for (const path of paths.values()) path.classList.toggle('is-selected', path.dataset.code === selected);
     showTown();
     if (announce) {
-      const best = ranked[0];
-      $('live').textContent = `中位數每年 ${mid.toFixed(1)} 天，最多是${best.name} ${best.days.toFixed(1)} 天。`;
+      $('live').textContent = mid === null
+        ? '沒有鄉鎮落在這個海拔範圍。'
+        : `中位數每年 ${mid.toFixed(1)} 天，最多是${ranked[0].name} ${ranked[0].days.toFixed(1)} 天。`;
     }
   }
 
@@ -819,11 +819,9 @@ function boot(meta, geo, buffer) {
     hi.addEventListener('change', () => render(true));
   }
   bindPair(tmaxLo, tmaxHi);
-  bindPair(tminLo, tminHi);
+  bindPair(elevLo, elevHi);
 
   for (const [boxId, extraId] of [
-    ['use-tmin', 'tmin-extra'],
-    ['use-app', 'app-extra'],
     ['use-sun', 'sun-extra'],
     ['use-wind', 'wind-extra']
   ]) {
@@ -834,21 +832,9 @@ function boot(meta, geo, buffer) {
     });
   }
   $('use-dry').addEventListener('change', () => render(true));
-  for (const input of [$('app-max'), $('sun-min'), $('wind-max')]) {
+  for (const input of [$('sun-min'), $('wind-max')]) {
     input.addEventListener('input', () => schedule(false));
     input.addEventListener('change', () => render(true));
-  }
-  for (const button of document.querySelectorAll('.presets button')) {
-    button.addEventListener('click', () => {
-      tmaxLo.value = button.dataset.lo;
-      tmaxHi.value = button.dataset.hi;
-      for (const id of ['use-tmin', 'use-app', 'use-dry', 'use-sun', 'use-wind']) {
-        const box = $(id);
-        box.checked = false;
-      }
-      for (const id of ['tmin-extra', 'app-extra', 'sun-extra', 'wind-extra']) $(id).hidden = true;
-      render(true);
-    });
   }
   select.addEventListener('change', () => {
     if (select.value) choose(select.value, true);
@@ -885,7 +871,8 @@ function boot(meta, geo, buffer) {
     }
     const town = townByCode.get(code);
     tip.hidden = false;
-    tip.textContent = `${town.name}　每年 ${scores[town.cell].toFixed(1)} 天`;
+    const outside = !townInRange(town);
+    tip.textContent = `${town.name}　每年 ${scores[town.cell].toFixed(1)} 天${outside ? '，海拔不在範圍內' : ''}`;
     const frame = $('map-frame').getBoundingClientRect();
     const left = event.clientX - frame.left + 12;
     const top = event.clientY - frame.top + 12;
