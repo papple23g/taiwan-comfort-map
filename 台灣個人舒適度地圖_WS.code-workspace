@@ -1,0 +1,41 @@
+{
+	"folders": [
+		{
+			"name": "台灣舒適度地圖",
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.defaultInterpreterPath": "C:\\Users\\pappl\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+		"python.terminal.activateEnvironment": false
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "啟動舒適度地圖",
+				"type": "debugpy",
+				"request": "launch",
+				"module": "http.server",
+				"args": [
+					"8765",
+					"--bind",
+					"127.0.0.1",
+					"--directory",
+					"."
+				],
+				"cwd": "${workspaceFolder}",
+				"console": "integratedTerminal",
+				"justMyCode": true,
+				"env": {
+					"PYTHONUNBUFFERED": "1"
+				},
+				"serverReadyAction": {
+					"action": "openExternally",
+					"pattern": "(http://127\\.0\\.0\\.1:8765/)",
+					"uriFormat": "%s"
+				}
+			}
+		]
+	}
+}
