@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>台灣舒適度地圖</title>
+<style>
+  /* 資料儀表板：藍字與琥珀色用在操作與圖例。內文用深色，離線所以不載網路字型。 */
+  :root {
+    --bg: #F8FAFC;
+    --panel: #FFFFFF;
+    --ink: #0F172A;
+    --heading: #1E3A8A;
+    --primary: #1E40AF;
+    --on-primary: #FFFFFF;
+    --muted: #E9EEF6;
+    --border: #DBEAFE;
+    --control: #64748B;
+    --hint: #334155;
+    --accent: #D97706;
+    --focus: #1E40AF;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  button, select, input { font: inherit; }
+  button { cursor: pointer; }
+  h1, h2 { color: var(--heading); line-height: 1.2; }
+  h1 { margin: 0; font-size: 1.5rem; }
+  h2 { margin: 0 0 8px; font-size: 1rem; }
+  p { margin: 0; }
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 32px;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 16px 16px 0;
+  }
+  .lede { max-width: 42rem; margin-top: 6px; color: var(--hint); }
+  .kpi { display: flex; gap: 8px; margin: 0; }
+  .kpi div {
+    min-width: 92px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+  }
+  .kpi dt { color: var(--hint); font-size: 0.8rem; }
+  .kpi dd { margin: 2px 0 0; font-size: 1.35rem; font-variant-numeric: tabular-nums; font-weight: 650; }
+  .shell {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
+    align-items: start;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px;
+  }
+  .panel + .panel { margin-top: 12px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+  .presets button, .tools button, .rank {
+    min-height: 44px;
+    border: 1px solid var(--primary);
+    background: var(--panel);
+    color: var(--primary);
+    padding: 8px 10px;
+  }
+  .presets button[aria-pressed="true"] {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+  .field { margin-top: 14px; }
+  .field-head, .check, .select-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .value { font-variant-numeric: tabular-nums; font-weight: 650; }
+  .hint { color: var(--hint); font-size: 0.875rem; margin-top: 4px; }
+  .dual { position: relative; height: 36px; margin-top: 8px; }
+  .dual-track, .dual-fill {
+    position: absolute;
+    top: 16px;
+    height: 4px;
+    border-radius: 999px;
+  }
+  .dual-track { left: 11px; right: 11px; background: var(--border); }
+  .dual-fill { background: var(--primary); }
+  .dual input[type="range"] {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    top: 4px;
+    margin: 0;
+    height: 28px;
+    background: none;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .dual input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    background: transparent;
+  }
+  .dual input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    width: 22px;
+    height: 22px;
+    margin-top: -9px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid #fff;
+    cursor: grab;
+  }
+  .dual input[type="range"]::-moz-range-track {
+    height: 4px;
+    background: transparent;
+    border: none;
+  }
+  .dual input[type="range"]::-moz-range-thumb {
+    pointer-events: auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid #fff;
+    cursor: grab;
+  }
+  .check { min-height: 44px; cursor: pointer; justify-content: flex-start; }
+  .check input { width: 20px; height: 20px; margin: 0; accent-color: var(--primary); }
+  .extra { margin: 0 0 8px 28px; }
+  .extra label { display: block; font-size: 0.875rem; color: var(--hint); }
+  .single {
+    width: 100%;
+    accent-color: var(--primary);
+    min-height: 44px;
+  }
+  .map-frame {
+    position: relative;
+    height: min(74vh, 860px);
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #E9EEF6;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .map-frame svg {
+    height: 100%;
+    width: auto;
+    max-width: 100%;
+    display: block;
+    touch-action: none;
+    background: #E9EEF6;
+    overflow: hidden;
+  }
+  .town { stroke: #64748B; stroke-width: 0.45; cursor: pointer; }
+  .town.is-selected { stroke: #0F172A; stroke-width: 2.2; }
+  .tools {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: calc(100% - 16px);
+  }
+  .tools button { background: var(--panel); }
+  .legend { margin-top: 8px; }
+  .legend-bar { height: 14px; border: 1px solid #E2E8F0; border-radius: 7px; }
+  .legend-labels {
+    display: flex;
+    justify-content: space-between;
+    color: var(--hint);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .detail { margin-top: 12px; }
+  .detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .big { font-size: 1.8rem; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .months {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 10px;
+    min-height: 120px;
+  }
+  .bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: 110px;
+  }
+  .bar i {
+    display: block;
+    width: 100%;
+    background: var(--primary);
+    min-height: 2px;
+  }
+  .bar b, .bar span { font-size: 0.7rem; font-variant-numeric: tabular-nums; color: var(--hint); }
+  .select-label { margin-top: 10px; display: block; }
+  select {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 4px;
+    border: 1px solid var(--control);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 8px;
+  }
+  .lists { display: grid; gap: 12px; }
+  ol { list-style: none; margin: 0; padding: 0; }
+  .rank {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+    border-color: var(--border);
+    color: var(--ink);
+  }
+  .rank[aria-current="true"] { border-color: var(--primary); background: #EFF6FF; }
+  .days { font-variant-numeric: tabular-nums; color: var(--heading); }
+  #banner[hidden], .extra[hidden], #tip[hidden] { display: none; }
+  #banner {
+    margin: 12px 16px 0;
+    padding: 10px 12px;
+    background: #FEF3C7;
+    color: #78350F;
+  }
+  #tip {
+    position: absolute;
+    z-index: 2;
+    max-width: 240px;
+    padding: 8px 10px;
+    background: var(--panel);
+    border: 1px solid var(--primary);
+    pointer-events: none;
+    font-size: 0.9rem;
+  }
+  footer {
+    padding: 4px 16px 20px;
+    color: var(--hint);
+    font-size: 0.8rem;
+  }
+  footer p + p { margin-top: 6px; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+  @media (max-width: 800px) {
+    .shell { grid-template-columns: 1fr; }
+    .map-frame { height: 72vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .town { transition: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>台灣舒適度地圖</h1>
+    <p class="lede">拖動你覺得舒服的日最高溫，再勾選在意的天氣。顏色是 1991–2020 年平均每年有幾天同時符合。</p>
+  </div>
+  <dl class="kpi">
+    <div><dt>中位數</dt><dd id="kpi-mid">–</dd></div>
+    <div><dt>最多</dt><dd id="kpi-max">–</dd></div>
+    <div><dt>最少</dt><dd id="kpi-min">–</dd></div>
+  </dl>
+</header>
+<p id="banner" role="status">正在讀取 30 年的每日天氣…</p>
+<p id="live" class="sr-only" aria-live="polite"></p>
+<div class="shell">
+  <aside>
+    <section class="panel">
+      <h2>你的舒適條件</h2>
+      <div class="presets" role="group" aria-label="快捷口徑">
+        <button type="button" data-lo="20" data-hi="28" aria-pressed="true">台灣戶外</button>
+        <button type="button" data-lo="10" data-hi="29" aria-pressed="false">貼文 50–85°F</button>
+        <button type="button" data-lo="10" data-hi="25" aria-pressed="false">留言 50–77°F</button>
+      </div>
+      <div class="field">
+        <div class="field-head">
+          <span id="tmax-label">日最高溫</span>
+          <span class="value" id="tmax-read">20–28°C</span>
+        </div>
+        <div class="dual" id="tmax-dual">
+          <div class="dual-track"></div>
+          <div class="dual-fill"></div>
+          <input id="tmax-lo" type="range" min="-5" max="42" step="0.5" value="20" aria-label="日最高溫下限">
+          <input id="tmax-hi" type="range" min="-5" max="42" step="0.5" value="28" aria-label="日最高溫上限">
+        </div>
+        <p class="hint" id="tmax-f">華氏約 68–82°F。未勾選的項目不參與篩選。</p>
+      </div>
+      <label class="check"><input id="use-tmin" type="checkbox"><span>晚上氣溫也要落在區間內</span></label>
+      <div class="extra" id="tmin-extra" hidden>
+        <div class="field-head"><span>日最低溫</span><span class="value" id="tmin-read">15–24°C</span></div>
+        <div class="dual" id="tmin-dual">
+          <div class="dual-track"></div>
+          <div class="dual-fill"></div>
+          <input id="tmin-lo" type="range" min="-5" max="42" step="0.5" value="15" aria-label="日最低溫下限">
+          <input id="tmin-hi" type="range" min="-5" max="42" step="0.5" value="24" aria-label="日最低溫上限">
+        </div>
+      </div>
+      <label class="check"><input id="use-app" type="checkbox"><span>不要悶</span></label>
+      <div class="extra" id="app-extra" hidden>
+        <label for="app-max">日平均露點上限 <span class="value" id="app-read">18°C</span></label>
+        <input id="app-max" class="single" type="range" min="0" max="26" step="0.5" value="18">
+        <p class="hint">露點是日平均，不是下午最高。山區會再依高度降低。</p>
+      </div>
+      <label class="check"><input id="use-dry" type="checkbox"><span>不要下雨</span></label>
+      <p class="hint">勾選後，日雨量要小於 1 毫米才算。</p>
+      <label class="check"><input id="use-sun" type="checkbox"><span>要出太陽</span></label>
+      <div class="extra" id="sun-extra" hidden>
+        <label for="sun-min">日照至少 <span class="value" id="sun-read">6 小時</span></label>
+        <input id="sun-min" class="single" type="range" min="1" max="12" step="0.5" value="6">
+      </div>
+      <label class="check"><input id="use-wind" type="checkbox"><span>風不要太大</span></label>
+      <div class="extra" id="wind-extra" hidden>
+        <label for="wind-max">日最大風速上限 <span class="value" id="wind-read">30 km/h</span></label>
+        <input id="wind-max" class="single" type="range" min="5" max="70" step="1" value="30">
+      </div>
+    </section>
+    <section class="panel lists">
+      <div>
+        <h2>最多的十個鄉鎮</h2>
+        <ol id="top-list"></ol>
+      </div>
+      <div>
+        <h2>最少的十個鄉鎮</h2>
+        <ol id="bottom-list"></ol>
+      </div>
+    </section>
+  </aside>
+  <main>
+    <div class="map-frame" id="map-frame">
+      <div class="tools">
+        <button type="button" id="zoom-in">放大</button>
+        <button type="button" id="zoom-out">縮小</button>
+        <button type="button" id="view-all">含離島</button>
+        <button type="button" id="view-main">臺灣本島</button>
+      </div>
+      <svg id="map" role="group" aria-label="台灣鄉鎮每年符合天數" tabindex="0"></svg>
+      <div id="tip" hidden></div>
+    </div>
+    <div class="legend">
+      <div class="legend-bar" id="legend-bar"></div>
+      <div class="legend-labels"><span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>250</span><span>300</span><span>350 天／年</span></div>
+    </div>
+    <section class="panel detail">
+      <div class="detail-head">
+        <h2 id="place-name">點一個鄉鎮</h2>
+        <div class="big" id="place-days"></div>
+      </div>
+      <p class="hint" id="place-note">點地圖、名單，或用下面的選單。每月的數字是該月平均有幾天符合。</p>
+      <label class="select-label">直接選鄉鎮
+        <select id="town-select"><option value="">選擇鄉鎮市區</option></select>
+      </label>
+      <div class="months" id="months"></div>
+    </section>
+  </main>
+</div>
+<footer>
+  <p>每年天數＝1991–2020 這 30 年裡符合的天數 ÷ 30。缺值不計入，也不用 0 填。</p>
+  <p>天氣底圖是 NASA POWER 的 MERRA-2，約 50 公里，1991–2020。Open-Meteo 的 30 年介面當天額度用完，所以沒有用 ERA5-Land。鄉鎮代表點的高度來自 Open-Meteo 地形；氣溫依每上升 1 公里減 6.5°C、露點減 1.8°C，從那個粗網格修正到當地高度。雨量、風速與日照仍是粗網格的值，不隨高度改。日照時數是估計：全天空輻射除以晴空輻射，再乘上當天的白晝時數。</p>
+  <p>界線：內政部國土測繪中心鄉鎮市區界 TOWN_MOI_1140318，政府資料開放授權條款第 1 版，經 pdmaptw 簡化。東沙、太平島與釣魚臺距離太遠，沒有畫進這張圖；旗津、頭城的天氣用本島那一塊。這不是中央氣象署測站實測，也不是預報。</p>
+</footer>
+<script>
+const STOPS = [
+  [0, [253, 243, 254]],
+  [50, [239, 205, 244]],
+  [100, [184, 186, 223]],
+  [150, [128, 189, 233]],
+  [200, [118, 204, 143]],
+  [250, [249, 232, 114]],
+  [300, [235, 161, 64]],
+  [350, [214, 70, 47]],
+  [365, [214, 70, 47]]
+];
+const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+const $ = (id) => document.getElementById(id);
+const banner = $('banner');
+const tmaxLo = $('tmax-lo');
+const tmaxHi = $('tmax-hi');
+const tminLo = $('tmin-lo');
+const tminHi = $('tmin-hi');
+
+function colorFor(days) {
+  const x = Math.max(0, Math.min(365, days));
+  let index = 1;
+  while (index < STOPS.length - 1 && STOPS[index][0] < x) index += 1;
+  const [x0, c0] = STOPS[index - 1];
+  const [x1, c1] = STOPS[index];
+  const t = x1 === x0 ? 0 : Math.max(0, Math.min(1, (x - x0) / (x1 - x0)));
+  const rgb = c0.map((channel, i) => Math.round(channel + (c1[i] - channel) * t));
+  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+function fahrenheit(celsius) {
+  return Math.round(celsius * 9 / 5 + 32);
+}
+
+function paintDual(lo, hi, root) {
+  const min = Number(lo.min);
+  const max = Number(lo.max);
+  const a = (Number(lo.value) - min) / (max - min);
+  const b = (Number(hi.value) - min) / (max - min);
+  const fill = root.querySelector('.dual-fill');
+  fill.style.left = `calc(11px + (100% - 22px) * ${a})`;
+  fill.style.width = `calc((100% - 22px) * ${b - a})`;
+}
+
+function keepRing(ring) {
+  let lon = 0;
+  let lat = 0;
+  for (const point of ring) {
+    lon += point[0];
+    lat += point[1];
+  }
+  lon /= ring.length;
+  lat /= ring.length;
+  return lon >= 118 && lon <= 122.35 && lat >= 21.8 && lat <= 26.55;
+}
+
+function showError(error) {
+  banner.hidden = false;
+  banner.textContent = `讀不到氣候資料（${error.message}）。請在這個資料夾執行 py -3.12 -m http.server 8765 --bind 127.0.0.1 ，再開啟 http://127.0.0.1:8765/ 。`;
+}
+
+async function load() {
+  const [metaRes, geoRes, binRes] = await Promise.all([
+    fetch('data/meta.json'),
+    fetch('data/towns.geojson'),
+    fetch('data/climate.bin')
+  ]);
+  if (!metaRes.ok || !geoRes.ok || !binRes.ok) throw new Error('HTTP');
+  return [await metaRes.json(), await geoRes.json(), await binRes.arrayBuffer()];
+}
+
+function boot(meta, geo, buffer) {
+  const header = new DataView(buffer);
+  const magic = String.fromCharCode(header.getUint8(0), header.getUint8(1), header.getUint8(2), header.getUint8(3));
+  if (magic !== 'CWCM') throw new Error('檔案格式不符');
+  const nCells = header.getUint16(6, true);
+  const nDays = header.getUint16(8, true);
+  const nVars = header.getUint16(10, true);
+  if (nDays !== meta.days || nCells !== meta.cells.length || nVars !== 6) {
+    throw new Error('資料筆數對不上');
+  }
+  const plane = nCells * nDays;
+  const planes = Array.from({length: nVars}, (_, i) => new Uint8Array(buffer, 16 + i * plane, plane));
+  const months = meta.months;
+  const townByCode = new Map(meta.towns.map((town) => [town.code, town]));
+  const geoByCode = new Map(geo.features.map((feature) => [feature.properties.code, feature]));
+
+  const points = [];
+  for (const feature of geo.features) {
+    const polygons = feature.geometry.type === 'MultiPolygon'
+      ? feature.geometry.coordinates
+      : [feature.geometry.coordinates];
+    for (const rings of polygons) {
+      if (!keepRing(rings[0])) continue;
+      for (const ring of rings) points.push(...ring);
+    }
+  }
+  const lons = points.map((point) => point[0]);
+  const lats = points.map((point) => point[1]);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const spanLon = maxLon - minLon;
+  const spanLat = maxLat - minLat;
+  const vbW = 800;
+  const vbH = Math.round(vbW * (spanLat * 111) / (spanLon * 111 * Math.cos(23.5 * Math.PI / 180)));
+  const pad = 18;
+  const project = (lon, lat) => [
+    pad + (lon - minLon) / spanLon * (vbW - pad * 2),
+    pad + (maxLat - lat) / spanLat * (vbH - pad * 2)
+  ];
+  const svg = $('map');
+  svg.setAttribute('viewBox', `0 0 ${vbW} ${vbH}`);
+  const viewport = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  svg.append(viewport);
+  const paths = new Map();
+  const bounds = new Map();
+  const mainBox = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
+  const ringOnMain = (ring) => {
+    let lon = 0;
+    let lat = 0;
+    for (const point of ring) {
+      lon += point[0];
+      lat += point[1];
+    }
+    lon /= ring.length;
+    lat /= ring.length;
+    return lon >= 120 && lon <= 122.15 && lat >= 21.85 && lat <= 25.4;
+  };
+  for (const town of meta.towns) {
+    const feature = geoByCode.get(town.code);
+    const polygons = feature.geometry.type === 'MultiPolygon'
+      ? feature.geometry.coordinates
+      : [feature.geometry.coordinates];
+    let d = '';
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const rings of polygons) {
+      if (!keepRing(rings[0])) continue;
+      const onMain = ringOnMain(rings[0]);
+      for (const ring of rings) {
+        ring.forEach((point, i) => {
+          const [x, y] = project(point[0], point[1]);
+          d += `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+          if (onMain) {
+            mainBox.minX = Math.min(mainBox.minX, x);
+            mainBox.minY = Math.min(mainBox.minY, y);
+            mainBox.maxX = Math.max(mainBox.maxX, x);
+            mainBox.maxY = Math.max(mainBox.maxY, y);
+          }
+        });
+        d += 'Z';
+      }
+    }
+    if (!d) continue;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', '#E2E8F0');
+    path.setAttribute('fill-rule', 'evenodd');
+    path.setAttribute('vector-effect', 'non-scaling-stroke');
+    path.dataset.code = town.code;
+    path.classList.add('town');
+    viewport.append(path);
+    paths.set(town.code, path);
+    bounds.set(town.code, {minX, minY, maxX, maxY});
+  }
+
+  let view = {x: 0, y: 0, w: vbW, h: vbH};
+  let tx = 0;
+  let ty = 0;
+  let scale = 1;
+  const applyFrame = () => {
+    svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
+    svg.style.aspectRatio = `${view.w} / ${view.h}`;
+  };
+  const applyView = () => {
+    viewport.setAttribute('transform', `translate(${tx} ${ty}) scale(${scale})`);
+  };
+  const zoomAt = (factor, cx, cy) => {
+    const next = Math.min(14, Math.max(1, scale * factor));
+    tx = cx - (cx - tx) * (next / scale);
+    ty = cy - (cy - ty) * (next / scale);
+    scale = next;
+    applyView();
+  };
+  const fitBox = (box, pad = 0.08) => {
+    const width = Math.max(8, box.maxX - box.minX);
+    const height = Math.max(8, box.maxY - box.minY);
+    view = {
+      x: box.minX - width * pad,
+      y: box.minY - height * pad,
+      w: width * (1 + pad * 2),
+      h: height * (1 + pad * 2)
+    };
+    tx = 0;
+    ty = 0;
+    scale = 1;
+    applyFrame();
+    applyView();
+  };
+  const showAll = () => {
+    view = {x: 0, y: 0, w: vbW, h: vbH};
+    tx = 0;
+    ty = 0;
+    scale = 1;
+    applyFrame();
+    applyView();
+  };
+  const select = $('town-select');
+  const named = [...meta.towns].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+  for (const town of named) {
+    const option = document.createElement('option');
+    option.value = town.code;
+    option.textContent = town.name;
+    select.append(option);
+  }
+
+  let selected = '';
+  let scores = [];
+  let monthScores = [];
+  let timer = 0;
+
+  function readNumber(input) {
+    return Number(input.value);
+  }
+
+  function clampPair(lo, hi) {
+    if (readNumber(lo) > readNumber(hi)) lo.value = hi.value;
+  }
+
+  function decTemp(quantum) {
+    return quantum === 255 ? null : quantum / 2 - 40;
+  }
+
+  function readControls() {
+    return {
+      tmaxLo: readNumber(tmaxLo),
+      tmaxHi: readNumber(tmaxHi),
+      useTmin: $('use-tmin').checked,
+      tminLo: readNumber(tminLo),
+      tminHi: readNumber(tminHi),
+      useApp: $('use-app').checked,
+      appMax: readNumber($('app-max')),
+      useDry: $('use-dry').checked,
+      useSun: $('use-sun').checked,
+      sunMin: readNumber($('sun-min')),
+      useWind: $('use-wind').checked,
+      windMax: readNumber($('wind-max'))
+    };
+  }
+
+  function dayOk(controls, cell, day) {
+    const base = cell * nDays + day;
+    const high = decTemp(planes[0][base]);
+    if (high === null || high < controls.tmaxLo || high > controls.tmaxHi) return false;
+    if (controls.useTmin) {
+      const low = decTemp(planes[1][base]);
+      if (low === null || low < controls.tminLo || low > controls.tminHi) return false;
+    }
+    if (controls.useApp) {
+      const feel = decTemp(planes[2][base]);
+      if (feel === null || feel > controls.appMax) return false;
+    }
+    if (controls.useDry) {
+      const rain = planes[3][base];
+      if (rain === 255 || rain >= 1) return false;
+    }
+    if (controls.useSun) {
+      const sun = planes[4][base];
+      if (sun === 255 || sun / 2 < controls.sunMin) return false;
+    }
+    if (controls.useWind) {
+      const wind = planes[5][base];
+      if (wind === 255 || wind > controls.windMax) return false;
+    }
+    return true;
+  }
+
+  function compute() {
+    const controls = readControls();
+    scores = new Array(nCells);
+    monthScores = new Array(nCells);
+    for (let cell = 0; cell < nCells; cell += 1) {
+      let matched = 0;
+      const byMonth = new Uint16Array(12);
+      for (let day = 0; day < nDays; day += 1) {
+        if (!dayOk(controls, cell, day)) continue;
+        matched += 1;
+        byMonth[months[day] - 1] += 1;
+      }
+      scores[cell] = matched / meta.years;
+      monthScores[cell] = Array.from(byMonth, (count) => count / meta.years);
+    }
+  }
+
+  function paintReads() {
+    const lo = readNumber(tmaxLo);
+    const hi = readNumber(tmaxHi);
+    $('tmax-read').textContent = `${lo}–${hi}°C`;
+    $('tmax-f').textContent = `華氏約 ${fahrenheit(lo)}–${fahrenheit(hi)}°F。未勾選的項目不參與篩選。`;
+    $('tmin-read').textContent = `${readNumber(tminLo)}–${readNumber(tminHi)}°C`;
+    $('app-read').textContent = `${readNumber($('app-max'))}°C`;
+    $('sun-read').textContent = `${readNumber($('sun-min'))} 小時`;
+    $('wind-read').textContent = `${readNumber($('wind-max'))} km/h`;
+    paintDual(tmaxLo, tmaxHi, $('tmax-dual'));
+    paintDual(tminLo, tminHi, $('tmin-dual'));
+    const pressed = !$('use-tmin').checked && !$('use-app').checked && !$('use-dry').checked
+      && !$('use-sun').checked && !$('use-wind').checked;
+    for (const button of document.querySelectorAll('.presets button')) {
+      const match = pressed && Number(button.dataset.lo) === lo && Number(button.dataset.hi) === hi;
+      button.setAttribute('aria-pressed', match ? 'true' : 'false');
+    }
+  }
+
+  function fillList(list, rows) {
+    list.replaceChildren();
+    for (const row of rows) {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'rank';
+      if (row.code === selected) button.setAttribute('aria-current', 'true');
+      const name = document.createElement('span');
+      name.textContent = row.name;
+      const days = document.createElement('span');
+      days.className = 'days';
+      days.textContent = row.days.toFixed(1);
+      button.append(name, days);
+      button.addEventListener('click', () => choose(row.code, true));
+      item.append(button);
+      list.append(item);
+    }
+  }
+
+  function showTown() {
+    const town = townByCode.get(selected);
+    if (!town) {
+      $('place-name').textContent = '點一個鄉鎮';
+      $('place-days').textContent = '';
+      $('place-note').textContent = '點地圖、名單，或用下面的選單。每月的數字是該月平均有幾天符合。';
+      $('months').replaceChildren();
+      select.value = '';
+      return;
+    }
+    const days = scores[town.cell];
+    const mates = meta.towns.filter((item) => item.cell === town.cell).length;
+    $('place-name').textContent = town.name;
+    $('place-days').textContent = `每年 ${days.toFixed(1)} 天`;
+    const elev = meta.cells[town.cell].elev;
+    $('place-note').textContent = mates > 1
+      ? `網格海拔約 ${elev} 公尺，和另外 ${mates - 1} 個鄉鎮共用這一格，所以天數相同。`
+      : `網格海拔約 ${elev} 公尺。`;
+    select.value = town.code;
+    const series = monthScores[town.cell];
+    const peak = Math.max(8, ...series);
+    $('months').replaceChildren();
+    series.forEach((value, index) => {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const mark = document.createElement('i');
+      mark.style.height = `${Math.max(2, value / peak * 72)}px`;
+      mark.title = `${MONTHS[index]} ${value.toFixed(1)} 天`;
+      const num = document.createElement('b');
+      num.textContent = value.toFixed(1);
+      const label = document.createElement('span');
+      label.textContent = String(index + 1);
+      bar.append(mark, num, label);
+      bar.setAttribute('aria-label', `${MONTHS[index]}平均 ${value.toFixed(1)} 天`);
+      $('months').append(bar);
+    });
+  }
+
+  function render(announce) {
+    paintReads();
+    compute();
+    for (const town of meta.towns) {
+      const path = paths.get(town.code);
+      if (!path) continue;
+      path.setAttribute('fill', colorFor(scores[town.cell]));
+    }
+    const ranked = meta.towns.map((town) => ({...town, days: scores[town.cell]}));
+    ranked.sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, 'zh-Hant'));
+    const values = ranked.map((town) => town.days).sort((a, b) => a - b);
+    const mid = values.length % 2
+      ? values[(values.length - 1) / 2]
+      : (values[values.length / 2 - 1] + values[values.length / 2]) / 2;
+    $('kpi-mid').textContent = mid.toFixed(1);
+    $('kpi-max').textContent = values[values.length - 1].toFixed(1);
+    $('kpi-min').textContent = values[0].toFixed(1);
+    fillList($('top-list'), ranked.slice(0, 10));
+    fillList($('bottom-list'), ranked.slice(-10).reverse());
+    for (const path of paths.values()) path.classList.toggle('is-selected', path.dataset.code === selected);
+    showTown();
+    if (announce) {
+      const best = ranked[0];
+      $('live').textContent = `中位數每年 ${mid.toFixed(1)} 天，最多是${best.name} ${best.days.toFixed(1)} 天。`;
+    }
+  }
+
+  function schedule(announce) {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => render(announce), 40);
+  }
+
+  function choose(code, zoom) {
+    selected = code;
+    if (zoom && bounds.has(code)) fitBox(bounds.get(code));
+    render(false);
+  }
+
+  function bindPair(lo, hi) {
+    const onInput = (event) => {
+      clampPair(lo, hi);
+      event.target.style.zIndex = '2';
+      (event.target === lo ? hi : lo).style.zIndex = '1';
+      schedule(false);
+    };
+    lo.addEventListener('input', onInput);
+    hi.addEventListener('input', onInput);
+    lo.addEventListener('change', () => render(true));
+    hi.addEventListener('change', () => render(true));
+  }
+  bindPair(tmaxLo, tmaxHi);
+  bindPair(tminLo, tminHi);
+
+  for (const [boxId, extraId] of [
+    ['use-tmin', 'tmin-extra'],
+    ['use-app', 'app-extra'],
+    ['use-sun', 'sun-extra'],
+    ['use-wind', 'wind-extra']
+  ]) {
+    const box = $(boxId);
+    box.addEventListener('change', () => {
+      $(extraId).hidden = !box.checked;
+      render(true);
+    });
+  }
+  $('use-dry').addEventListener('change', () => render(true));
+  for (const input of [$('app-max'), $('sun-min'), $('wind-max')]) {
+    input.addEventListener('input', () => schedule(false));
+    input.addEventListener('change', () => render(true));
+  }
+  for (const button of document.querySelectorAll('.presets button')) {
+    button.addEventListener('click', () => {
+      tmaxLo.value = button.dataset.lo;
+      tmaxHi.value = button.dataset.hi;
+      for (const id of ['use-tmin', 'use-app', 'use-dry', 'use-sun', 'use-wind']) {
+        const box = $(id);
+        box.checked = false;
+      }
+      for (const id of ['tmin-extra', 'app-extra', 'sun-extra', 'wind-extra']) $(id).hidden = true;
+      render(true);
+    });
+  }
+  select.addEventListener('change', () => {
+    if (select.value) choose(select.value, true);
+  });
+
+  const tip = $('tip');
+  let drag = null;
+  svg.addEventListener('pointerdown', (event) => {
+    svg.setPointerCapture(event.pointerId);
+    drag = {
+      x: event.clientX,
+      y: event.clientY,
+      tx, ty,
+      moved: false,
+      code: event.target.closest('.town')?.dataset.code || ''
+    };
+  });
+  svg.addEventListener('pointermove', (event) => {
+    if (drag) {
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (Math.hypot(dx, dy) > 4) {
+        drag.moved = true;
+        const rect = svg.getBoundingClientRect();
+        tx = drag.tx + dx / rect.width * view.w;
+        ty = drag.ty + dy / rect.height * view.h;
+        applyView();
+      }
+    }
+    const code = event.target.closest?.('.town')?.dataset.code;
+    if (!code || !scores.length) {
+      tip.hidden = true;
+      return;
+    }
+    const town = townByCode.get(code);
+    tip.hidden = false;
+    tip.textContent = `${town.name}　每年 ${scores[town.cell].toFixed(1)} 天`;
+    const frame = $('map-frame').getBoundingClientRect();
+    const left = event.clientX - frame.left + 12;
+    const top = event.clientY - frame.top + 12;
+    tip.style.left = `${Math.min(left, frame.width - 180)}px`;
+    tip.style.top = `${Math.min(top, frame.height - 48)}px`;
+  });
+  svg.addEventListener('pointerup', () => {
+    if (drag && !drag.moved && drag.code) choose(drag.code, false);
+    drag = null;
+  });
+  svg.addEventListener('pointerleave', () => { tip.hidden = true; });
+  svg.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const cx = view.x + (event.clientX - rect.left) / rect.width * view.w;
+    const cy = view.y + (event.clientY - rect.top) / rect.height * view.h;
+    zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, cx, cy);
+  }, {passive: false});
+  svg.addEventListener('keydown', (event) => {
+    if (event.key === '+' || event.key === '=') zoomAt(1.2, view.x + view.w / 2, view.y + view.h / 2);
+    if (event.key === '-' || event.key === '_') zoomAt(1 / 1.2, view.x + view.w / 2, view.y + view.h / 2);
+    if (event.key === '0') showAll();
+  });
+  $('zoom-in').addEventListener('click', () => zoomAt(1.25, view.x + view.w / 2, view.y + view.h / 2));
+  $('zoom-out').addEventListener('click', () => zoomAt(1 / 1.25, view.x + view.w / 2, view.y + view.h / 2));
+  $('view-all').addEventListener('click', showAll);
+  $('view-main').addEventListener('click', () => fitBox(mainBox, 0.04));
+
+  const gradient = STOPS.map(([stop, rgb]) => `rgb(${rgb.join(',')}) ${stop / 365 * 100}%`).join(', ');
+  $('legend-bar').style.background = `linear-gradient(90deg, ${gradient})`;
+  banner.hidden = true;
+  render(true);
+}
+
+load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError);
+</script>
+</body>
+</html>
