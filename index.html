@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>台灣舒適度地圖</title>
 <style>
-  /* 資料儀表板：藍字與琥珀色用在操作與圖例。內文用深色，離線所以不載網路字型。 */
+  /* 使用系統字型，讓離線資料頁不依賴字型服務。 */
   :root {
     --bg: #F8FAFC;
     --panel: #FFFFFF;
@@ -57,7 +57,9 @@
     border: 1px solid var(--border);
     padding: 14px;
   }
-  .panel + .panel { margin-top: 12px; }
+  .conditions { grid-column: 1; grid-row: 1; }
+  main { grid-column: 2; grid-row: 1 / span 2; min-width: 0; }
+  .lists { grid-column: 1; grid-row: 2; }
   .tools button, .rank {
     min-height: 44px;
     border: 1px solid var(--primary);
@@ -65,13 +67,6 @@
     color: var(--primary);
     padding: 8px 10px;
   }
-  .group {
-    margin: 16px 0 8px;
-    color: var(--hint);
-    font-size: 0.8rem;
-    font-weight: 650;
-  }
-  .group:first-of-type { margin-top: 0; }
   .field {
     display: grid;
     grid-template-columns: auto minmax(60px, 1fr) auto;
@@ -82,10 +77,13 @@
   .field-head { display: contents; }
   .field .label { grid-column: 1; grid-row: 1; font-size: 0.875rem; white-space: nowrap; }
   .field .value { grid-column: 3; grid-row: 1; font-size: 0.875rem; white-space: nowrap; }
-  .field .dual { grid-column: 2; grid-row: 1; margin-top: 0; }
+  .field .temperature-range { grid-column: 2; grid-row: 1; }
+  .temperature-range { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .temperature-range .dual { flex: 1; min-width: 0; margin-top: 0; }
+  .temperature-range .cold { color: #2563EB; }
+  .temperature-range .hot { color: #DC2626; }
   .field .hint { grid-column: 1 / -1; }
-  .group + .field { margin-top: 0; }
-  .check, .select-label, .label {
+  .select-label, .label {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -95,22 +93,23 @@
   .icon { width: 20px; height: 20px; flex: none; color: var(--primary); }
   .value { font-variant-numeric: tabular-nums; font-weight: 650; }
   .hint { color: var(--hint); font-size: 0.875rem; margin-top: 4px; }
-  .dual { position: relative; height: 36px; margin-top: 8px; }
+  .dual { position: relative; height: 44px; }
   .dual-track, .dual-fill {
     position: absolute;
-    top: 16px;
+    top: 20px;
     height: 4px;
     border-radius: 999px;
   }
-  .dual-track { left: 11px; right: 11px; background: var(--border); }
-  .dual-fill { background: var(--primary); }
+  .dual-track { left: 11px; right: 11px; background: var(--track-gradient, linear-gradient(90deg, #38A4FA 0%, #BCE6FF 30%, #F8FAFC 50%, #FBCDDD 72%, #F57870 100%)); }
+  .dual-fill { top: 18px; height: 8px; border: 1px solid #64748B; background: transparent; }
+  #rain-dual { --track-gradient: linear-gradient(90deg, #DBF2FF, #73B6EB 50%, #4264C8); }
   .dual input[type="range"] {
     position: absolute;
     left: 0;
     width: 100%;
-    top: 4px;
+    top: 0;
     margin: 0;
-    height: 28px;
+    height: 44px;
     background: none;
     pointer-events: none;
     -webkit-appearance: none;
@@ -137,6 +136,7 @@
     border: none;
   }
   .dual input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box;
     pointer-events: auto;
     width: 22px;
     height: 22px;
@@ -145,8 +145,6 @@
     border: 2px solid #fff;
     cursor: grab;
   }
-  .check { min-height: 44px; cursor: pointer; justify-content: flex-start; }
-  .check input { width: 20px; height: 20px; margin: 0; accent-color: var(--primary); }
   .extra { display: flex; align-items: center; gap: 8px; margin: 0 0 8px 28px; }
   .extra label { flex: none; white-space: nowrap; font-size: 0.875rem; color: var(--hint); }
   .single {
@@ -157,6 +155,73 @@
     accent-color: var(--primary);
     min-height: 44px;
   }
+  .conditions {
+    padding: 18px;
+    border-color: #DCE3ED;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgb(15 23 42 / 3%);
+  }
+  .conditions h2 { margin-bottom: 20px; color: var(--ink); font-size: 1.125rem; font-weight: 700; }
+  .conditions .field { margin-top: 12px; padding-bottom: 14px; border-bottom: 1px solid #E8EDF4; column-gap: 8px; }
+  .conditions .label { gap: 6px; font-weight: 600; }
+  .conditions .icon { width: 18px; height: 18px; }
+  .conditions .hint { color: #526077; font-size: 0.75rem; line-height: 1.7; margin-top: 4px; }
+  .conditions .value {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 5px;
+    background: #EFF4FC;
+    color: var(--heading);
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .weather-option {
+    min-width: 0;
+    margin: 14px 0 0;
+    padding: 8px 10px 10px;
+    border: 1px solid #E1E7EF;
+    border-radius: 8px;
+    background: #FAFBFD;
+  }
+  .weather-option legend { padding: 0 4px; color: #334155; font-size: 0.875rem; font-weight: 650; }
+  .weather-option legend .icon { vertical-align: -4px; margin-right: 4px; }
+  .segments { display: flex; gap: 3px; padding: 3px; border: 1px solid #DCE3ED; border-radius: 7px; background: #EDF1F7; }
+  .segments label { position: relative; flex: 1; min-width: 0; cursor: pointer; }
+  .segments span { display: flex; align-items: center; justify-content: center; min-height: 38px; padding: 6px 4px; border: 1px solid transparent; border-radius: 5px; font-size: 0.875rem; white-space: nowrap; color: #526077; }
+  .segments input:checked + span { background: #FFF; color: var(--primary); border-color: #C3D0E3; box-shadow: 0 1px 3px rgb(15 23 42 / 6%); font-weight: 650; }
+  .segments input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .segments input:disabled + span { opacity: 0.45; cursor: wait; }
+  .weather-option:hover { border-color: #94A9CA; }
+  .weather-option:focus-within { border-color: var(--primary); }
+  .weather-option > .hint { margin: 8px 0 0; }
+  .conditions .extra { gap: 8px; margin: 0; }
+  .range-row { display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; align-items: center; column-gap: 6px; }
+  .range-row label { font-size: 0.75rem; color: #526077; }
+  .range-row .dual { min-width: 0; }
+  .data-status { margin-top: 14px; padding: 10px; border-radius: 6px; background: #FFF7ED; color: #9A3412; font-size: 0.8rem; }
+  .data-status button { margin-top: 8px; min-height: 40px; border: 1px solid #9A3412; border-radius: 5px; padding: 4px 12px; background: white; color: #9A3412; }
+  .conditions .extra label { color: #526077; font-size: 0.75rem; }
+  .conditions .single {
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  #sun-min { --track-gradient: linear-gradient(90deg, #FDE68A, #B45309); }
+  #wind-max { --track-gradient: linear-gradient(90deg, #BAE6FD, #1D4ED8); }
+  .conditions .single::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: var(--track-gradient); }
+  .conditions .single::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -7px;
+    border: 2px solid #FFF;
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 1px 3px rgb(15 23 42 / 16%);
+  }
+  .conditions .single::-moz-range-track { height: 4px; border-radius: 4px; background: var(--track-gradient); }
+  .conditions .single::-moz-range-progress { background: transparent; }
+  .conditions .single::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #FFF; border-radius: 50%; background: var(--primary); }
   .map-frame {
     position: relative;
     height: min(74vh, 860px);
@@ -170,8 +235,7 @@
   }
   .map-frame svg {
     height: 100%;
-    width: auto;
-    max-width: 100%;
+    width: 100%;
     display: block;
     touch-action: none;
     background: #E9EEF6;
@@ -200,34 +264,39 @@
     margin-top: 2px;
   }
   .detail { margin-top: 12px; }
-  .detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-  .big { font-size: 1.8rem; font-variant-numeric: tabular-nums; font-weight: 700; }
-  .months {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 4px;
-    margin-top: 10px;
-    min-height: 120px;
-  }
-  .bar {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: center;
-    min-height: 110px;
-  }
-  .bar i {
-    display: block;
-    width: 100%;
-    background: var(--primary);
-    min-height: 2px;
-  }
-  .bar b, .bar span { font-size: 0.7rem; font-variant-numeric: tabular-nums; color: var(--hint); }
-  .select-label { margin-top: 10px; display: block; }
+  .detail { border-radius: 10px; padding: 18px; }
+  .detail-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+  .detail-head .select-label { flex: 1; min-width: 0; max-width: 360px; }
+  .annual { flex: none; text-align: right; }
+  .annual > span { display: block; color: #526077; font-size: 0.75rem; }
+  .big { font-size: 1.6rem; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  .empty-state { padding: 24px 0 8px; color: #526077; font-size: 0.875rem; }
+  .chart-section { margin-top: 24px; }
+  .chart-section + .chart-section { padding-top: 22px; border-top: 1px solid #E2E8F0; }
+  .chart-section h2 { color: var(--ink); margin-bottom: 4px; }
+  .chart-scroll { overflow-x: auto; max-width: 100%; margin-top: 12px; overscroll-behavior-x: contain; }
+  .chart { display: block; width: 100%; min-width: 720px; height: auto; }
+  .chart text { font-family: inherit; fill: #526077; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .chart .axis-title { font-size: 13px; fill: #334155; }
+  .chart .bar-value { fill: #1E3A8A; font-size: 12px; font-weight: 650; }
+  .chart .gridline { stroke: #E2E8F0; stroke-width: 1; }
+  .chart .axis { stroke: #94A3B8; stroke-width: 1; }
+  .chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 12px; color: #526077; font-size: 0.8rem; }
+  .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { display: inline-block; width: 22px; height: 3px; background: #E85F59; }
+  .swatch.low { background: none; height: 0; border-top: 3px dashed #2879C5; }
+  .swatch.rain { height: 10px; border-radius: 2px; background: #BADEEF; }
+  details { margin-top: 16px; color: #526077; font-size: 0.8rem; }
+  summary { cursor: pointer; padding: 10px 0; min-height: 40px; color: var(--primary); }
+  .table-scroll { max-width: 100%; overflow-x: auto; }
+  table { width: 100%; min-width: 580px; border-collapse: collapse; font-variant-numeric: tabular-nums; text-align: right; }
+  th, td { border-bottom: 1px solid #E2E8F0; padding: 8px; white-space: nowrap; }
+  th { color: #334155; background: #F8FAFC; }
+  th:first-child { text-align: left; }
   select {
     width: 100%;
     min-height: 44px;
-    margin-top: 4px;
+    margin-top: 0;
     border: 1px solid var(--control);
     background: var(--panel);
     color: var(--ink);
@@ -246,7 +315,7 @@
   }
   .rank[aria-current="true"] { border-color: var(--primary); background: #EFF6FF; }
   .days { font-variant-numeric: tabular-nums; color: var(--heading); }
-  #banner[hidden], .extra[hidden], #tip[hidden] { display: none; }
+  [hidden] { display: none !important; }
   #banner {
     margin: 12px 16px 0;
     padding: 10px 12px;
@@ -281,7 +350,16 @@
   }
   @media (max-width: 800px) {
     .shell { grid-template-columns: 1fr; }
+    .conditions, main, .lists { grid-column: auto; grid-row: auto; }
     .map-frame { height: 72vh; }
+  }
+  @media (max-width: 480px) {
+    .detail { padding: 14px; }
+    .detail-head { align-items: stretch; flex-direction: column; gap: 10px; }
+    .detail-head .select-label { max-width: none; }
+    .annual { text-align: left; display: flex; align-items: baseline; gap: 10px; }
+    .big { font-size: 1.4rem; }
+    .legend-labels { font-size: 0.65rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     .town { transition: none; }
@@ -298,67 +376,75 @@
 <p id="banner" role="status">正在讀取 30 年的每日天氣…</p>
 <p id="live" class="sr-only" aria-live="polite"></p>
 <div class="shell">
-  <aside>
-    <section class="panel">
+    <section class="panel conditions">
       <h2>你的舒適條件</h2>
-      <h3 class="group">溫度與海拔</h3>
       <div class="field">
         <div class="field-head">
           <span class="label" id="tmax-label">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5.5a2 2 0 1 1 4 0v9a3.5 3.5 0 1 1-4 0z" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="12" cy="17.5" r="1.2" fill="currentColor"/></svg>
-            日夜氣溫
+            氣溫
           </span>
           <span class="value" id="tmax-read">20–28°C</span>
         </div>
-        <div class="dual" id="tmax-dual">
+        <div class="temperature-range">
+          <svg class="icon cold" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9 4.5l3 3 3-3M9 19.5l3-3 3 3M4 11l4-1-1-4M20 13l-4 1 1 4M7 18l1-4-4-1M17 6l-1 4 4 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div class="dual" id="tmax-dual">
           <div class="dual-track"></div>
           <div class="dual-fill"></div>
-          <input id="tmax-lo" type="range" min="-20" max="42" step="0.5" value="20" aria-label="日夜氣溫下限">
-          <input id="tmax-hi" type="range" min="-20" max="42" step="0.5" value="28" aria-label="日夜氣溫上限">
+          <input id="tmax-lo" type="range" min="-5" max="35" step="0.5" value="20" aria-label="氣溫下限" aria-describedby="tmax-f">
+          <input id="tmax-hi" type="range" min="-5" max="35" step="0.5" value="28" aria-label="氣溫上限" aria-describedby="tmax-f">
+          </div>
+          <svg class="icon hot" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3c1 5-3 6-3 9-2-1-2-3-2-3s-4 4-4 7a8 8 0 0 0 16 0c0-5-4-9-7-13zM12 14c2 2 3 3 3 5a3 3 0 0 1-6 0c0-2 2-3 3-5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <p class="hint" id="tmax-f">日最高溫與日最低溫都要落在這個區間。華氏約 68–82°F。</p>
       </div>
-      <div class="field">
-        <div class="field-head">
-          <span class="label" id="elev-label">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l6.5-9 3.2 4.2L16 9l5 9H3z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
-            海拔
-          </span>
-          <span class="value" id="elev-read">-50–2400 公尺</span>
+      <fieldset class="weather-option" id="rain-condition">
+        <legend><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16a4 4 0 0 1-.4-8 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 18 16M8 18.5l-1 2M12 18.5l-1 2M16 18.5l-1 2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>降雨</legend>
+        <div class="segments">
+          <label><input class="sr-only" type="radio" name="rain-mode" value="any"><span>不限</span></label>
+          <label><input class="sr-only" type="radio" name="rain-mode" value="dry" checked disabled><span>無雨</span></label>
+          <label><input class="sr-only" type="radio" name="rain-mode" value="wet" disabled><span>有雨</span></label>
         </div>
-        <div class="dual" id="elev-dual">
-          <div class="dual-track"></div>
-          <div class="dual-fill"></div>
-          <input id="elev-lo" type="range" min="-50" max="2400" step="50" value="-50" aria-label="海拔下限">
-          <input id="elev-hi" type="range" min="-50" max="2400" step="50" value="2400" aria-label="海拔上限">
+        <p class="hint" id="rain-note">日雨量小於 1 毫米。</p>
+        <div id="rain-extra" hidden>
+          <div class="range-row">
+            <span class="hint">雨量</span>
+            <div class="dual" id="rain-dual">
+              <div class="dual-track"></div><div class="dual-fill"></div>
+              <input id="rain-lo" type="range" min="1" max="100" step="1" value="1" aria-label="日雨量下限" aria-describedby="rain-range-note">
+              <input id="rain-hi" type="range" min="1" max="100" step="1" value="100" aria-label="日雨量上限" aria-describedby="rain-range-note">
+            </div>
+            <span class="value" id="rain-read">1 毫米以上</span>
+          </div>
+          <p class="hint" id="rain-range-note">100+ 代表不設上限。</p>
         </div>
-        <p class="hint">範圍外的鄉鎮變灰，不計入排名。</p>
-      </div>
-      <h3 class="group">天氣</h3>
-      <label class="check"><input id="use-dry" type="checkbox" checked><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16a4 4 0 0 1-.4-8 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 18 16" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M8 18.5l-1 2M12 18.5l-1 2M16 18.5l-1 2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg><span>不要下雨</span></label>
-      <p class="hint">勾選後，日雨量要小於 1 毫米才算。</p>
-      <label class="check"><input id="use-sun" type="checkbox" checked><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg><span>要出太陽</span></label>
+      </fieldset>
+      <fieldset class="weather-option">
+        <legend><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>日照</legend>
+        <div class="segments">
+          <label><input class="sr-only" type="radio" name="sun-mode" value="any"><span>不限</span></label>
+          <label><input class="sr-only" type="radio" name="sun-mode" value="sun" checked><span>出太陽</span></label>
+        </div>
       <div class="extra" id="sun-extra">
         <label for="sun-min">日照至少 <span class="value" id="sun-read">6 小時</span></label>
         <input id="sun-min" class="single" type="range" min="1" max="12" step="0.5" value="6">
       </div>
-      <label class="check"><input id="use-wind" type="checkbox"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5M3 12h15a2.5 2.5 0 1 1-2.5 2.5M3 16h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg><span>風不要太大</span></label>
+      </fieldset>
+      <fieldset class="weather-option">
+        <legend><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5M3 12h15a2.5 2.5 0 1 1-2.5 2.5M3 16h8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>風力</legend>
+        <div class="segments">
+          <label><input class="sr-only" type="radio" name="wind-mode" value="any" checked><span>不限</span></label>
+          <label><input class="sr-only" type="radio" name="wind-mode" value="wind"><span>風力限制</span></label>
+        </div>
       <div class="extra" id="wind-extra" hidden>
         <label for="wind-max">日最大風速上限 <span class="value" id="wind-read">30 km/h</span></label>
         <input id="wind-max" class="single" type="range" min="5" max="70" step="1" value="30">
       </div>
-    </section>
-    <section class="panel lists">
-      <div>
-        <h2>最多的十個鄉鎮</h2>
-        <ol id="top-list"></ol>
-      </div>
-      <div>
-        <h2>最少的十個鄉鎮</h2>
-        <ol id="bottom-list"></ol>
+      </fieldset>
+      <div class="data-status" id="weather-status" role="status">
+        <p id="weather-message">正在讀取精確雨量與月氣候資料…</p>
+        <button type="button" id="weather-retry" hidden>重試載入</button>
       </div>
     </section>
-  </aside>
   <main>
     <div class="map-frame" id="map-frame">
       <div class="tools">
@@ -376,20 +462,39 @@
     </div>
     <section class="panel detail">
       <div class="detail-head">
-        <h2 id="place-name">點一個鄉鎮</h2>
-        <div class="big" id="place-days"></div>
+        <label class="select-label"><span class="sr-only">選擇鄉鎮市區</span>
+          <select id="town-select"><option value="">選擇鄉鎮市區</option></select>
+        </label>
+        <div class="annual" id="annual" hidden><span>每年符合天數</span><div class="big" id="place-days"></div></div>
       </div>
-      <p class="hint" id="place-note">點地圖、名單，或用下面的選單。每月的數字是該月平均有幾天符合。</p>
-      <label class="select-label">直接選鄉鎮
-        <select id="town-select"><option value="">選擇鄉鎮市區</option></select>
-      </label>
-      <div class="months" id="months"></div>
+      <p class="empty-state" id="town-prompt">點選地圖、排名或上方選單，查看鄉鎮的每月天數與氣候。</p>
+      <section class="chart-section" id="matching-section" hidden>
+        <h2>每月符合天數</h2>
+        <div class="chart-scroll" tabindex="0" role="region" aria-label="每月符合天數圖，可水平捲動"><svg class="chart" id="months" viewBox="0 0 720 270" role="img" aria-label="每月平均符合天數，縱軸固定為零至三十一天"></svg></div>
+      </section>
+      <section class="chart-section" id="climate-section" hidden>
+        <h2>氣溫與雨量</h2>
+        <p class="hint">1991–2020 年月平均，不隨舒適條件篩選。</p>
+        <p class="hint" id="climate-message" role="status"></p>
+        <div id="climate-content" hidden>
+          <div class="chart-legend" aria-label="氣候圖圖例"><span><i class="swatch"></i>平均最高溫</span><span><i class="swatch low"></i>平均最低溫</span><span><i class="swatch rain"></i>平均月累積雨量</span></div>
+          <div class="chart-scroll" tabindex="0" role="region" aria-label="氣溫雨量圖，可水平捲動"><svg class="chart" id="climate-chart" viewBox="0 0 720 310" role="img" aria-label="各月平均最高溫、最低溫與累積雨量"></svg></div>
+          <details><summary>查看每月數據與有效年數</summary>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="每月數據表，可水平捲動"><table><caption class="sr-only">1991–2020 年各月氣候統計；只納入資料完整的年月。</caption><thead><tr><th scope="col">月份</th><th scope="col">最高溫 °C</th><th scope="col">最低溫 °C</th><th scope="col">雨量 毫米</th><th scope="col">有效年數（高／低／雨）</th></tr></thead><tbody id="climate-table"></tbody></table></div>
+            <p class="hint">先計算各年月的平均氣溫與累積雨量，再平均相同月份。各項只納入每日資料完整的年月；缺值以「—」表示。</p>
+          </details>
+        </div>
+      </section>
     </section>
   </main>
+  <section class="panel lists" aria-label="鄉鎮排名">
+    <div><h2>最多的十個鄉鎮</h2><ol id="top-list"></ol></div>
+    <div><h2>最少的十個鄉鎮</h2><ol id="bottom-list"></ol></div>
+  </section>
 </div>
 <footer>
   <p>每年天數＝1991–2020 這 30 年裡符合的天數 ÷ 30。缺值不計入，也不用 0 填。</p>
-  <p>天氣底圖是 NASA POWER 的 MERRA-2，約 50 公里，1991–2020。Open-Meteo 的 30 年介面當天額度用完，所以沒有用 ERA5-Land。鄉鎮代表點的高度來自 Open-Meteo 地形；氣溫依每上升 1 公里減 6.5°C、露點減 1.8°C，從那個粗網格修正到當地高度。雨量、風速與日照仍是粗網格的值，不隨高度改。日照時數是估計：全天空輻射除以晴空輻射，再乘上當天的白晝時數。</p>
+  <p>天氣底圖是 NASA POWER 的 MERRA-2，約 50 公里，1991–2020。鄉鎮代表點的高度來自 Open-Meteo 地形；氣溫依每上升 1 公里減 6.5°C、露點減 1.8°C，從粗網格修正到當地高度。雨量、風速與日照仍是粗網格的值，不隨高度改。降雨篩選與月累積雨量使用原始小數雨量；日照時數是估計：全天空輻射除以晴空輻射，再乘上當天的白晝時數。</p>
   <p>界線：內政部國土測繪中心鄉鎮市區界 TOWN_MOI_1140318，政府資料開放授權條款第 1 版，經 pdmaptw 簡化。東沙、太平島與釣魚臺距離太遠，沒有畫進這張圖；旗津、頭城的天氣用本島那一塊。這不是中央氣象署測站實測，也不是預報。</p>
 </footer>
 <script>
@@ -410,9 +515,6 @@ const $ = (id) => document.getElementById(id);
 const banner = $('banner');
 const tmaxLo = $('tmax-lo');
 const tmaxHi = $('tmax-hi');
-const elevLo = $('elev-lo');
-const elevHi = $('elev-hi');
-const OUT_FILL = '#E2E8F0';
 
 function colorFor(days) {
   const x = Math.max(0, Math.min(365, days));
@@ -453,7 +555,107 @@ function keepRing(ring) {
 
 function showError(error) {
   banner.hidden = false;
-  banner.textContent = `讀不到氣候資料（${error.message}）。請在這個資料夾執行 py -3.12 -m http.server 8765 --bind 127.0.0.1 ，再開啟 http://127.0.0.1:8765/ 。`;
+  banner.textContent = `氣候資料載入失敗（${error.message}），請重新整理頁面。`;
+}
+
+function rainMatches(rain, mode, lo, hi) {
+  if (mode === 'any') return true;
+  if (!Number.isFinite(rain) || rain < 0) return false;
+  if (mode === 'dry') return rain < 1;
+  return rain >= 1 && rain >= lo && (hi === 100 || rain <= hi);
+}
+
+function matchesDay(high, low, rain, sun, wind, controls) {
+  if (!Number.isFinite(high) || !Number.isFinite(low)) return false;
+  if (high < controls.tempLo || high > controls.tempHi || low < controls.tempLo || low > controls.tempHi) return false;
+  if (!rainMatches(rain, controls.rainMode, controls.rainLo, controls.rainHi)) return false;
+  if (controls.useSun && (!Number.isFinite(sun) || sun < controls.sunMin)) return false;
+  if (controls.useWind && (!Number.isFinite(wind) || wind > controls.windMax)) return false;
+  return true;
+}
+
+function clampRange(lo, hi, changed) {
+  if (Number(lo.value) <= Number(hi.value)) return;
+  if (changed === hi) hi.value = lo.value;
+  else lo.value = hi.value;
+}
+
+function validateWeather(data, meta) {
+  const bad = () => { throw new Error('補充氣象資料格式或日期不符'); };
+  if (data.version !== 1 || data.start !== meta.start || data.end !== meta.end || data.days !== meta.days || data.years !== meta.years) bad();
+  if (!Array.isArray(data.grids) || !data.grids.length || !Array.isArray(data.cellGrid) || data.cellGrid.length !== meta.cells.length || !Array.isArray(data.towns) || data.towns.length !== meta.towns.length) bad();
+  for (const grid of data.grids) {
+    if (!Array.isArray(grid.rain) || grid.rain.length !== meta.days || grid.rain.some((rain) => rain !== null && (!Number.isFinite(rain) || rain < 0))) bad();
+  }
+  if (data.cellGrid.some((index) => !Number.isInteger(index) || index < 0 || index >= data.grids.length)) bad();
+  const expected = new Map(meta.towns.map((town) => [town.code, town.cell]));
+  const seen = new Set();
+  for (const town of data.towns) {
+    if (seen.has(town.code) || !expected.has(town.code) || expected.get(town.code) !== town.cell || !Array.isArray(town.monthly) || town.monthly.length !== 12) bad();
+    seen.add(town.code);
+    for (const month of town.monthly) {
+      for (const key of ['tmax', 'tmin', 'precip']) {
+        const years = month.validYears?.[key];
+        const value = month[key];
+        if (!Number.isInteger(years) || years < 0 || years > meta.years || (years === 0 ? value !== null : !Number.isFinite(value)) || (key === 'precip' && value !== null && value < 0)) bad();
+      }
+    }
+  }
+  return data;
+}
+
+function matchingChart(series) {
+  const left = 58, right = 702, top = 42, bottom = 226;
+  const step = (right - left) / 12;
+  const y = (value) => bottom - value / 31 * (bottom - top);
+  let markup = '<text class="axis-title" x="8" y="17">平均符合天數（天）</text>';
+  for (const tick of [0, 10, 20, 31]) {
+    markup += `<line class="gridline" x1="${left}" x2="${right}" y1="${y(tick)}" y2="${y(tick)}"/><text x="${left - 10}" y="${y(tick) + 4}" text-anchor="end">${tick}</text>`;
+  }
+  markup += `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/>`;
+  series.forEach((value, index) => {
+    const x = left + (index + 0.5) * step;
+    markup += `<rect class="month-bar" x="${x - 16}" y="${y(value)}" width="32" height="${bottom - y(value)}" rx="2" fill="#3155BA"><title>${MONTHS[index]}：${value.toFixed(1)} 天</title></rect><text class="bar-value" x="${x}" y="${y(value) - 8}" text-anchor="middle">${value.toFixed(1)}</text><text x="${x}" y="${bottom + 18}" text-anchor="middle">${index + 1}</text>`;
+  });
+  return markup + '<text class="axis-title" x="380" y="265" text-anchor="middle">月份</text>';
+}
+
+function climateChart(monthly) {
+  const left = 58, right = 656, top = 48, bottom = 262;
+  const step = (right - left) / 12;
+  const temps = monthly.flatMap((month) => [month.tmax, month.tmin]).filter(Number.isFinite);
+  const low = Math.floor(Math.min(0, ...temps) / 5) * 5;
+  const high = Math.max(low + 10, Math.ceil(Math.max(30, ...temps) / 5) * 5);
+  const rainStep = Math.max(50, Math.ceil(Math.max(0, ...monthly.map((month) => month.precip ?? 0)) / 4 / 50) * 50);
+  const rainMax = rainStep * 4;
+  const tempY = (value) => bottom - (value - low) / (high - low) * (bottom - top);
+  const rainY = (value) => bottom - value / rainMax * (bottom - top);
+  const x = (index) => left + (index + 0.5) * step;
+  let markup = '<text class="axis-title" x="8" y="17">氣溫（°C）</text><text class="axis-title" x="712" y="17" text-anchor="end">平均月累積雨量（毫米）</text>';
+  for (let tick = low; tick <= high; tick += 5) {
+    markup += `<line class="gridline" x1="${left}" x2="${right}" y1="${tempY(tick)}" y2="${tempY(tick)}"/><text x="${left - 10}" y="${tempY(tick) + 4}" text-anchor="end">${tick}</text>`;
+  }
+  for (let tick = 0; tick <= rainMax; tick += rainStep) {
+    markup += `<text x="${right + 10}" y="${rainY(tick) + 4}">${tick}</text>`;
+  }
+  monthly.forEach((month, index) => {
+    if (month.precip !== null) markup += `<rect x="${x(index) - 14}" y="${rainY(month.precip)}" width="28" height="${bottom - rainY(month.precip)}" rx="2" fill="#BADEEF"><title>${MONTHS[index]}平均月累積雨量 ${month.precip.toFixed(1)} 毫米</title></rect>`;
+    markup += `<text x="${x(index)}" y="${bottom + 19}" text-anchor="middle">${index + 1}</text>`;
+  });
+  for (const [key, color, dash] of [['tmax', '#E85F59', ''], ['tmin', '#2879C5', '6 4']]) {
+    let segment = false;
+    let path = '';
+    monthly.forEach((month, index) => {
+      if (month[key] === null) { segment = false; return; }
+      path += `${segment ? 'L' : 'M'}${x(index)} ${tempY(month[key])} `;
+      segment = true;
+    });
+    markup += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}"/>`;
+    monthly.forEach((month, index) => {
+      if (month[key] !== null) markup += `<circle cx="${x(index)}" cy="${tempY(month[key])}" r="3" fill="${color}" stroke="white"><title>${MONTHS[index]}${key === 'tmax' ? '平均最高溫' : '平均最低溫'} ${month[key].toFixed(1)}°C</title></circle>`;
+    });
+  }
+  return markup + `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/><text class="axis-title" x="357" y="305" text-anchor="middle">月份</text>`;
 }
 
 async function load() {
@@ -565,8 +767,8 @@ function boot(meta, geo, buffer) {
   let scale = 1;
   const applyFrame = () => {
     svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
-    svg.style.aspectRatio = `${view.w} / ${view.h}`;
   };
+  const mapPoint = (clientX, clientY) => new DOMPoint(clientX, clientY).matrixTransform(svg.getScreenCTM().inverse());
   const applyView = () => {
     viewport.setAttribute('transform', `translate(${tx} ${ty}) scale(${scale})`);
   };
@@ -613,13 +815,13 @@ function boot(meta, geo, buffer) {
   let scores = [];
   let monthScores = [];
   let timer = 0;
+  let weather = null;
+  let climateByTown = new Map();
+  let lastClimateTown = null;
+  let weatherLoading = false;
 
   function readNumber(input) {
     return Number(input.value);
-  }
-
-  function clampPair(lo, hi) {
-    if (readNumber(lo) > readNumber(hi)) lo.value = hi.value;
   }
 
   function decTemp(quantum) {
@@ -630,10 +832,12 @@ function boot(meta, geo, buffer) {
     return {
       tempLo: readNumber(tmaxLo),
       tempHi: readNumber(tmaxHi),
-      useDry: $('use-dry').checked,
-      useSun: $('use-sun').checked,
+      rainMode: document.querySelector('input[name="rain-mode"]:checked').value,
+      rainLo: readNumber($('rain-lo')),
+      rainHi: readNumber($('rain-hi')),
+      useSun: document.querySelector('input[name="sun-mode"]:checked').value === 'sun',
       sunMin: readNumber($('sun-min')),
-      useWind: $('use-wind').checked,
+      useWind: document.querySelector('input[name="wind-mode"]:checked').value === 'wind',
       windMax: readNumber($('wind-max'))
     };
   }
@@ -642,22 +846,10 @@ function boot(meta, geo, buffer) {
     const base = cell * nDays + day;
     const high = decTemp(planes[0][base]);
     const low = decTemp(planes[1][base]);
-    if (high === null || low === null) return false;
-    if (high < controls.tempLo || high > controls.tempHi) return false;
-    if (low < controls.tempLo || low > controls.tempHi) return false;
-    if (controls.useDry) {
-      const rain = planes[3][base];
-      if (rain === 255 || rain >= 1) return false;
-    }
-    if (controls.useSun) {
-      const sun = planes[4][base];
-      if (sun === 255 || sun / 2 < controls.sunMin) return false;
-    }
-    if (controls.useWind) {
-      const wind = planes[5][base];
-      if (wind === 255 || wind > controls.windMax) return false;
-    }
-    return true;
+    const rain = controls.rainMode === 'any' ? null : weather.grids[weather.cellGrid[cell]].rain[day];
+    const sun = planes[4][base] === 255 ? null : planes[4][base] / 2;
+    const wind = planes[5][base] === 255 ? null : planes[5][base];
+    return matchesDay(high, low, rain, sun, wind, controls);
   }
 
   function compute() {
@@ -682,16 +874,18 @@ function boot(meta, geo, buffer) {
     const hi = readNumber(tmaxHi);
     $('tmax-read').textContent = `${lo}–${hi}°C`;
     $('tmax-f').textContent = `日最高溫與日最低溫都要落在這個區間。華氏約 ${fahrenheit(lo)}–${fahrenheit(hi)}°F。`;
-    $('elev-read').textContent = `${readNumber(elevLo)}–${readNumber(elevHi)} 公尺`;
     $('sun-read').textContent = `${readNumber($('sun-min'))} 小時`;
     $('wind-read').textContent = `${readNumber($('wind-max'))} km/h`;
+    const rainLo = readNumber($('rain-lo'));
+    const rainHi = readNumber($('rain-hi'));
+    $('rain-read').textContent = rainHi === 100 ? `${rainLo} 毫米以上` : `${rainLo}–${rainHi} 毫米`;
+    $('rain-hi').setAttribute('aria-valuetext', rainHi === 100 ? '100+ 毫米，不設上限' : `${rainHi} 毫米`);
+    $('rain-lo').setAttribute('aria-valuetext', `${rainLo} 毫米`);
+    const rainMode = readControls().rainMode;
+    $('rain-note').hidden = rainMode === 'wet';
+    $('rain-note').textContent = rainMode === 'dry' ? '日雨量小於 1 毫米。' : '不限制降雨。';
     paintDual(tmaxLo, tmaxHi, $('tmax-dual'));
-    paintDual(elevLo, elevHi, $('elev-dual'));
-  }
-
-  function townInRange(town) {
-    const elev = meta.cells[town.cell].elev;
-    return elev >= readNumber(elevLo) && elev <= readNumber(elevHi);
+    paintDual($('rain-lo'), $('rain-hi'), $('rain-dual'));
   }
 
   function fillList(list, rows) {
@@ -716,55 +910,49 @@ function boot(meta, geo, buffer) {
 
   function showTown() {
     const town = townByCode.get(selected);
+    $('town-prompt').hidden = Boolean(town);
+    $('annual').hidden = !town;
+    $('matching-section').hidden = !town;
+    $('climate-section').hidden = !town;
     if (!town) {
-      $('place-name').textContent = '點一個鄉鎮';
       $('place-days').textContent = '';
-      $('place-note').textContent = '點地圖、名單，或用下面的選單。每月的數字是該月平均有幾天符合。';
       $('months').replaceChildren();
+      $('climate-chart').replaceChildren();
+      $('climate-table').replaceChildren();
+      lastClimateTown = null;
       select.value = '';
       return;
     }
     const days = scores[town.cell];
-    const mates = meta.towns.filter((item) => item.cell === town.cell).length;
-    $('place-name').textContent = town.name;
-    $('place-days').textContent = `每年 ${days.toFixed(1)} 天`;
-    const elev = meta.cells[town.cell].elev;
-    const place = mates > 1
-      ? `網格海拔約 ${elev} 公尺，和另外 ${mates - 1} 個鄉鎮共用這一格，所以天數相同。`
-      : `網格海拔約 ${elev} 公尺。`;
-    $('place-note').textContent = townInRange(town)
-      ? place
-      : `${place}海拔不在範圍內，不計入排名。`;
+    $('place-days').textContent = `${days.toFixed(1)} 天`;
     select.value = town.code;
     const series = monthScores[town.cell];
-    const peak = Math.max(8, ...series);
-    $('months').replaceChildren();
-    series.forEach((value, index) => {
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      const mark = document.createElement('i');
-      mark.style.height = `${Math.max(2, value / peak * 72)}px`;
-      mark.title = `${MONTHS[index]} ${value.toFixed(1)} 天`;
-      const num = document.createElement('b');
-      num.textContent = value.toFixed(1);
-      const label = document.createElement('span');
-      label.textContent = String(index + 1);
-      bar.append(mark, num, label);
-      bar.setAttribute('aria-label', `${MONTHS[index]}平均 ${value.toFixed(1)} 天`);
-      $('months').append(bar);
-    });
+    $('months').innerHTML = matchingChart(series);
+    $('months').setAttribute('aria-label', `每月平均符合天數，縱軸固定零至三十一天。${series.map((value, index) => `${MONTHS[index]} ${value.toFixed(1)} 天`).join('；')}`);
+    if (lastClimateTown === town.code) return;
+    const climate = climateByTown.get(town.code);
+    $('climate-content').hidden = !climate;
+    $('climate-message').hidden = Boolean(climate);
+    if (!climate) {
+      $('climate-message').textContent = weatherLoading ? '月氣候資料載入中…' : '月氣候資料尚未載入，請使用條件面板的「重試載入」。';
+      return;
+    }
+    lastClimateTown = town.code;
+    $('climate-chart').innerHTML = climateChart(climate.monthly);
+    const number = (value) => value === null ? '—' : value.toFixed(1);
+    $('climate-table').innerHTML = climate.monthly.map((month, index) => `<tr><th scope="row">${index + 1}月</th><td>${number(month.tmax)}</td><td>${number(month.tmin)}</td><td>${number(month.precip)}</td><td>${month.validYears.tmax}／${month.validYears.tmin}／${month.validYears.precip}</td></tr>`).join('');
   }
 
   function render(announce) {
     paintReads();
+    if (!weather && readControls().rainMode !== 'any') return;
     compute();
     for (const town of meta.towns) {
       const path = paths.get(town.code);
       if (!path) continue;
-      path.setAttribute('fill', townInRange(town) ? colorFor(scores[town.cell]) : OUT_FILL);
+      path.setAttribute('fill', colorFor(scores[town.cell]));
     }
     const ranked = meta.towns
-      .filter(townInRange)
       .map((town) => ({...town, days: scores[town.cell]}));
     ranked.sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, 'zh-Hant'));
     const values = ranked.map((town) => town.days).sort((a, b) => a - b);
@@ -777,7 +965,7 @@ function boot(meta, geo, buffer) {
     showTown();
     if (announce) {
       $('live').textContent = mid === null
-        ? '沒有鄉鎮落在這個海拔範圍。'
+        ? '沒有可顯示的鄉鎮資料。'
         : `中位數每年 ${mid.toFixed(1)} 天，最多是${ranked[0].name} ${ranked[0].days.toFixed(1)} 天。`;
     }
   }
@@ -795,7 +983,7 @@ function boot(meta, geo, buffer) {
 
   function bindPair(lo, hi) {
     const onInput = (event) => {
-      clampPair(lo, hi);
+      clampRange(lo, hi, event.target);
       event.target.style.zIndex = '2';
       (event.target === lo ? hi : lo).style.zIndex = '1';
       schedule(false);
@@ -806,34 +994,63 @@ function boot(meta, geo, buffer) {
     hi.addEventListener('change', () => render(true));
   }
   bindPair(tmaxLo, tmaxHi);
-  bindPair(elevLo, elevHi);
+  bindPair($('rain-lo'), $('rain-hi'));
 
-  for (const [boxId, extraId] of [
-    ['use-sun', 'sun-extra'],
-    ['use-wind', 'wind-extra']
-  ]) {
-    const box = $(boxId);
-    box.addEventListener('change', () => {
-      $(extraId).hidden = !box.checked;
-      render(true);
-    });
+  function syncModes() {
+    const controls = readControls();
+    for (const [id, active] of [['rain-extra', controls.rainMode === 'wet' && Boolean(weather)], ['sun-extra', controls.useSun], ['wind-extra', controls.useWind]]) {
+      $(id).hidden = !active;
+      for (const input of $(id).querySelectorAll('input')) input.disabled = !active;
+    }
   }
-  $('use-dry').addEventListener('change', () => render(true));
+  for (const radio of document.querySelectorAll('.segments input')) radio.addEventListener('change', () => { syncModes(); render(true); });
   for (const input of [$('sun-min'), $('wind-max')]) {
     input.addEventListener('input', () => schedule(false));
     input.addEventListener('change', () => render(true));
   }
   select.addEventListener('change', () => {
-    if (select.value) choose(select.value);
+    choose(select.value);
   });
+
+  async function refreshWeather() {
+    if (weatherLoading) return;
+    weatherLoading = true;
+    $('weather-status').hidden = false;
+    $('weather-message').textContent = '正在讀取精確雨量與月氣候資料…';
+    $('weather-retry').hidden = true;
+    try {
+      const response = await fetch('data/weather-details.json', {cache: 'no-cache'});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      weather = validateWeather(await response.json(), meta);
+      climateByTown = new Map(weather.towns.map((town) => [town.code, town]));
+      $('weather-status').hidden = true;
+    } catch (error) {
+      weather = null;
+      climateByTown.clear();
+      document.querySelector('input[name="rain-mode"][value="any"]').checked = true;
+      $('weather-message').textContent = '精確雨量與月氣候資料載入失敗。降雨條件暫設為「不限」；其餘條件仍可使用。';
+      $('weather-retry').hidden = false;
+      console.warn('補充氣象資料載入失敗', error);
+    } finally {
+      weatherLoading = false;
+      for (const input of document.querySelectorAll('input[name="rain-mode"]')) input.disabled = input.value !== 'any' && !weather;
+      lastClimateTown = null;
+      syncModes();
+      render(true);
+    }
+  }
+  $('weather-retry').addEventListener('click', refreshWeather);
 
   const tip = $('tip');
   let drag = null;
   svg.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
     svg.setPointerCapture(event.pointerId);
+    const point = mapPoint(event.clientX, event.clientY);
     drag = {
       x: event.clientX,
       y: event.clientY,
+      point,
       tx, ty,
       moved: false,
       code: event.target.closest('.town')?.dataset.code || ''
@@ -843,11 +1060,11 @@ function boot(meta, geo, buffer) {
     if (drag) {
       const dx = event.clientX - drag.x;
       const dy = event.clientY - drag.y;
-      if (Math.hypot(dx, dy) > 4) {
+      if (drag.moved || Math.hypot(dx, dy) > 4) {
         drag.moved = true;
-        const rect = svg.getBoundingClientRect();
-        tx = drag.tx + dx / rect.width * view.w;
-        ty = drag.ty + dy / rect.height * view.h;
+        const point = mapPoint(event.clientX, event.clientY);
+        tx = drag.tx + point.x - drag.point.x;
+        ty = drag.ty + point.y - drag.point.y;
         applyView();
       }
     }
@@ -858,8 +1075,7 @@ function boot(meta, geo, buffer) {
     }
     const town = townByCode.get(code);
     tip.hidden = false;
-    const outside = !townInRange(town);
-    tip.textContent = `${town.name}　每年 ${scores[town.cell].toFixed(1)} 天${outside ? '，海拔不在範圍內' : ''}`;
+    tip.textContent = `${town.name}　每年 ${scores[town.cell].toFixed(1)} 天`;
     const frame = $('map-frame').getBoundingClientRect();
     const left = event.clientX - frame.left + 12;
     const top = event.clientY - frame.top + 12;
@@ -870,13 +1086,12 @@ function boot(meta, geo, buffer) {
     if (drag && !drag.moved && drag.code) choose(drag.code);
     drag = null;
   });
+  svg.addEventListener('pointercancel', () => { drag = null; tip.hidden = true; });
   svg.addEventListener('pointerleave', () => { tip.hidden = true; });
   svg.addEventListener('wheel', (event) => {
     event.preventDefault();
-    const rect = svg.getBoundingClientRect();
-    const cx = view.x + (event.clientX - rect.left) / rect.width * view.w;
-    const cy = view.y + (event.clientY - rect.top) / rect.height * view.h;
-    zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, cx, cy);
+    const point = mapPoint(event.clientX, event.clientY);
+    zoomAt(event.deltaY < 0 ? 1.15 : 1 / 1.15, point.x, point.y);
   }, {passive: false});
   svg.addEventListener('keydown', (event) => {
     if (event.key === '+' || event.key === '=') zoomAt(1.2, view.x + view.w / 2, view.y + view.h / 2);
@@ -891,7 +1106,9 @@ function boot(meta, geo, buffer) {
   const gradient = STOPS.map(([stop, rgb]) => `rgb(${rgb.join(',')}) ${stop / 365 * 100}%`).join(', ');
   $('legend-bar').style.background = `linear-gradient(90deg, ${gradient})`;
   banner.hidden = true;
-  render(true);
+  syncModes();
+  paintReads();
+  refreshWeather();
 }
 
 load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError);
