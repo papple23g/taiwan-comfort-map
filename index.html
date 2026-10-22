@@ -512,7 +512,6 @@ function boot(meta, geo, buffer) {
   const viewport = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   svg.append(viewport);
   const paths = new Map();
-  const bounds = new Map();
   const mainBox = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
   const ringOnMain = (ring) => {
     let lon = 0;
@@ -531,10 +530,6 @@ function boot(meta, geo, buffer) {
       ? feature.geometry.coordinates
       : [feature.geometry.coordinates];
     let d = '';
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
     for (const rings of polygons) {
       if (!keepRing(rings[0])) continue;
       const onMain = ringOnMain(rings[0]);
@@ -542,10 +537,6 @@ function boot(meta, geo, buffer) {
         ring.forEach((point, i) => {
           const [x, y] = project(point[0], point[1]);
           d += `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
-          minX = Math.min(minX, x);
-          minY = Math.min(minY, y);
-          maxX = Math.max(maxX, x);
-          maxY = Math.max(maxY, y);
           if (onMain) {
             mainBox.minX = Math.min(mainBox.minX, x);
             mainBox.minY = Math.min(mainBox.minY, y);
@@ -566,7 +557,6 @@ function boot(meta, geo, buffer) {
     path.classList.add('town');
     viewport.append(path);
     paths.set(town.code, path);
-    bounds.set(town.code, {minX, minY, maxX, maxY});
   }
 
   let view = {x: 0, y: 0, w: vbW, h: vbH};
@@ -718,7 +708,7 @@ function boot(meta, geo, buffer) {
       days.className = 'days';
       days.textContent = row.days.toFixed(1);
       button.append(name, days);
-      button.addEventListener('click', () => choose(row.code, true));
+      button.addEventListener('click', () => choose(row.code));
       item.append(button);
       list.append(item);
     }
@@ -797,9 +787,9 @@ function boot(meta, geo, buffer) {
     timer = window.setTimeout(() => render(announce), 40);
   }
 
-  function choose(code, zoom) {
+  function choose(code) {
     selected = code;
-    if (zoom && bounds.has(code)) fitBox(bounds.get(code));
+    showAll();
     render(false);
   }
 
@@ -834,7 +824,7 @@ function boot(meta, geo, buffer) {
     input.addEventListener('change', () => render(true));
   }
   select.addEventListener('change', () => {
-    if (select.value) choose(select.value, true);
+    if (select.value) choose(select.value);
   });
 
   const tip = $('tip');
@@ -877,7 +867,7 @@ function boot(meta, geo, buffer) {
     tip.style.top = `${Math.min(top, frame.height - 48)}px`;
   });
   svg.addEventListener('pointerup', () => {
-    if (drag && !drag.moved && drag.code) choose(drag.code, false);
+    if (drag && !drag.moved && drag.code) choose(drag.code);
     drag = null;
   });
   svg.addEventListener('pointerleave', () => { tip.hidden = true; });
