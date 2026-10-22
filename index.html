@@ -45,15 +45,6 @@
     padding: 16px 16px 0;
   }
   .lede { max-width: 42rem; margin-top: 6px; color: var(--hint); }
-  .kpi { display: flex; gap: 8px; margin: 0; }
-  .kpi div {
-    min-width: 92px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 8px 10px;
-  }
-  .kpi dt { color: var(--hint); font-size: 0.8rem; }
-  .kpi dd { margin: 2px 0 0; font-size: 1.35rem; font-variant-numeric: tabular-nums; font-weight: 650; }
   .shell {
     display: grid;
     grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
@@ -81,14 +72,25 @@
     font-weight: 650;
   }
   .group:first-of-type { margin-top: 0; }
-  .field { margin-top: 14px; }
+  .field {
+    display: grid;
+    grid-template-columns: auto minmax(60px, 1fr) auto;
+    align-items: center;
+    column-gap: 6px;
+    margin-top: 14px;
+  }
+  .field-head { display: contents; }
+  .field .label { grid-column: 1; grid-row: 1; font-size: 0.875rem; white-space: nowrap; }
+  .field .value { grid-column: 3; grid-row: 1; font-size: 0.875rem; white-space: nowrap; }
+  .field .dual { grid-column: 2; grid-row: 1; margin-top: 0; }
+  .field .hint { grid-column: 1 / -1; }
   .group + .field { margin-top: 0; }
-  .field-head, .check, .select-label, .label {
+  .check, .select-label, .label {
     display: flex;
     align-items: center;
     gap: 8px;
   }
-  .field-head, .select-label { justify-content: space-between; }
+  .select-label { justify-content: space-between; }
   .label { justify-content: flex-start; min-height: 44px; }
   .icon { width: 20px; height: 20px; flex: none; color: var(--primary); }
   .value { font-variant-numeric: tabular-nums; font-weight: 650; }
@@ -145,10 +147,13 @@
   }
   .check { min-height: 44px; cursor: pointer; justify-content: flex-start; }
   .check input { width: 20px; height: 20px; margin: 0; accent-color: var(--primary); }
-  .extra { margin: 0 0 8px 28px; }
-  .extra label { display: block; font-size: 0.875rem; color: var(--hint); }
+  .extra { display: flex; align-items: center; gap: 8px; margin: 0 0 8px 28px; }
+  .extra label { flex: none; white-space: nowrap; font-size: 0.875rem; color: var(--hint); }
   .single {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+    width: 0;
+    margin: 0;
     accent-color: var(--primary);
     min-height: 44px;
   }
@@ -287,13 +292,8 @@
 <header class="top">
   <div>
     <h1>台灣舒適度地圖</h1>
-    <p class="lede">拖動日夜都舒服的溫度與海拔，再勾選在意的天氣。顏色是 1991–2020 年平均每年有幾天同時符合。</p>
+    <p class="lede">資料期間：1991–2020 年。</p>
   </div>
-  <dl class="kpi">
-    <div><dt>中位數</dt><dd id="kpi-mid">–</dd></div>
-    <div><dt>最多</dt><dd id="kpi-max">–</dd></div>
-    <div><dt>最少</dt><dd id="kpi-min">–</dd></div>
-  </dl>
 </header>
 <p id="banner" role="status">正在讀取 30 年的每日天氣…</p>
 <p id="live" class="sr-only" aria-live="polite"></p>
@@ -781,9 +781,6 @@ function boot(meta, geo, buffer) {
     const mid = values.length === 0 ? null : values.length % 2
       ? values[(values.length - 1) / 2]
       : (values[values.length / 2 - 1] + values[values.length / 2]) / 2;
-    $('kpi-mid').textContent = mid === null ? '–' : mid.toFixed(1);
-    $('kpi-max').textContent = values.length ? values[values.length - 1].toFixed(1) : '–';
-    $('kpi-min').textContent = values.length ? values[0].toFixed(1) : '–';
     fillList($('top-list'), ranked.slice(0, 10));
     fillList($('bottom-list'), ranked.slice(-10).reverse());
     for (const path of paths.values()) path.classList.toggle('is-selected', path.dataset.code === selected);
