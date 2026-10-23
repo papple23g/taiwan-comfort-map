@@ -6,26 +6,94 @@ const vm = require('node:vm');
 const html = fs.readFileSync(`${__dirname}/index.html`, 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 new vm.Script(script);
-const scope = vm.createContext({document: {getElementById: () => ({})}});
+const scope = vm.createContext({Event, document: {getElementById: () => ({})}});
 vm.runInContext(script.slice(0, script.indexOf('\nload().then(')), scope);
-const controls = {tempLo: 20, tempHi: 28, rainMode: 'wet', rainLo: 1, rainHi: 100, useSun: false, sunMin: 6, useWind: false, windMax: 30};
+const controls = {tempLo: 20, tempHi: 28, rainMode: 'wet', rainLo: 0, rainHi: 4, useSun: false, sunMin: 6, sunMax: 12, useWind: false, windMin: 5, windMax: 30};
 
-test('rain modes use exact decimals, inclusive finite bounds and an unlimited 100+ endpoint', () => {
-  for (const [rain, dry, wet, finite] of [[0.99, true, false, false], [1, false, true, true], [99, false, true, true], [100, false, true, false], [331.05, false, true, false]]) {
-    assert.equal(scope.rainMatches(rain, 'dry', 1, 100), dry);
-    assert.equal(scope.rainMatches(rain, 'wet', 1, 100), wet);
-    assert.equal(scope.rainMatches(rain, 'wet', 1, 99), finite);
+test('sunlight and wind ranges include both bounds, allow equality and ignore inactive ranges', () => {
+  const active = {...controls, useSun: true, useWind: true, sunMin: 6.5, sunMax: 8, windMin: 10, windMax: 30};
+  const matches = (sun, wind, settings = active) => scope.matchesDay(28, 20, 1, sun, wind, settings);
+  for (const sun of [6.5, 8]) for (const wind of [10, 30]) assert.equal(matches(sun, wind), true);
+  for (const sun of [6, 8.5, null, NaN]) assert.equal(matches(sun, 20), false);
+  for (const wind of [9, 31, null, NaN]) assert.equal(matches(7, wind), false);
+  assert.equal(matches(7, 20, {...active, sunMin: 7, sunMax: 7, windMin: 20, windMax: 20}), true);
+  assert.equal(matches(null, null, {...active, useSun: false, useWind: false}), true);
+});
+
+function touchHarness() {
+  const handlers = {};
+  const view = {x: 20, y: 30, scale: 2};
+  let moves = 0, cancellations = 0;
+  const selected = [];
+  scope.bindTouchMap({addEventListener: (name, handler) => { handlers[name] = handler; }}, {
+    point: (x, y) => ({x: x / 2, y: y / 2}), readView: () => ({...view}),
+    move: (next) => { Object.assign(view, next); moves++; },
+    cancel: () => { cancellations++; }, choose: (code) => selected.push(code)
+  });
+  return {view, selected, get moves() { return moves; }, get cancellations() { return cancellations; },
+    fire(name, points) {
+      let prevented = false;
+      handlers[name]({touches: points.map(([clientX, clientY]) => ({clientX, clientY})), target: {closest: () => ({dataset: {code: 'town'}})}, preventDefault() { prevented = true; }});
+      return prevented;
+    }};
+}
+
+test('one finger scrolls without moving the map; taps select but drags do not', () => {
+  const touch = touchHarness();
+  assert.equal(touch.fire('touchstart', [[100, 100]]), false);
+  assert.equal(touch.fire('touchmove', [[100, 200]]), false);
+  touch.fire('touchend', []);
+  assert.equal(touch.moves, 0);
+  assert.equal(touch.selected.length, 0);
+  touch.fire('touchstart', [[100, 100]]);
+  touch.fire('touchend', []);
+  assert.deepEqual(touch.selected, ['town']);
+});
+
+test('two fingers pan and pinch around their midpoint with scale limits and no residual one-finger drag', () => {
+  const touch = touchHarness();
+  assert.equal(touch.fire('touchstart', [[100, 100], [200, 100]]), true);
+  assert.equal(touch.cancellations, 1);
+  assert.equal(touch.fire('touchmove', [[120, 140], [220, 140]]), true);
+  assert.deepEqual(touch.view, {x: 30, y: 50, scale: 2});
+  touch.fire('touchmove', [[100, 100], [300, 100]]);
+  assert.deepEqual(touch.view, {x: -10, y: 10, scale: 4});
+  touch.fire('touchmove', [[-1000, 100], [1000, 100]]);
+  assert.equal(touch.view.scale, 14);
+  touch.fire('touchend', [[100, 100]]);
+  const moves = touch.moves;
+  touch.fire('touchmove', [[100, 200]]);
+  assert.equal(touch.moves, moves);
+  touch.fire('touchend', []);
+  assert.equal(touch.selected.length, 0);
+  touch.fire('touchstart', [[100, 100], [200, 100]]);
+  touch.fire('touchmove', [[150, 100], [150, 100]]);
+  assert.equal(touch.view.scale, 1);
+  touch.fire('touchcancel', []);
+  touch.fire('touchmove', [[100, 100]]);
+  assert.equal(touch.view.scale, 1);
+});
+
+test('rain levels use exact decimals, half-open intervals and an unlimited highest level', () => {
+  const cases = [[0.99, -1], [1, 0], [9.99, 0], [10, 1], [24.99, 1], [25, 2], [79.99, 2], [80, 3], [199.99, 3], [200, 4], [331.05, 4]];
+  for (const [rain, level] of cases) {
+    assert.equal(scope.rainMatches(rain, 'dry', 0, 4), rain < 1);
+    assert.equal(scope.rainMatches(rain, 'wet', 0, 4), rain >= 1);
+    for (let index = 0; index < 5; index++) assert.equal(scope.rainMatches(rain, 'wet', index, index), level === index);
+    assert.equal(scope.rainMatches(rain, 'wet', 1, 3), rain >= 10 && rain < 200);
   }
-  assert.equal(scope.rainMatches(99, 'wet', 99, 99), true);
-  assert.equal(scope.rainMatches(100, 'wet', 100, 100), true);
-  assert.equal(scope.rainMatches(331.05, 'wet', 100, 100), true);
+  assert.equal(scope.rainMatches(10000, 'wet', 4, 4), true);
+  assert.equal(scope.rainDescription(1, 3).name, '小雨～大雨');
+  assert.equal(scope.rainDescription(1, 3).exact, '10 毫米 ≤ 日雨量 < 200 毫米');
+  assert.equal(scope.rainDescription(4, 4).name, '豪雨以上');
+  assert.equal(scope.rainDescription(4, 4).exact, '日雨量 ≥ 200 毫米，不設上限');
 });
 
 test('inactive weather restrictions accept missing values; active ones reject them', () => {
   for (const value of [null, undefined, NaN, -1]) {
-    assert.equal(scope.rainMatches(value, 'any', 1, 100), true);
-    assert.equal(scope.rainMatches(value, 'dry', 1, 100), false);
-    assert.equal(scope.rainMatches(value, 'wet', 1, 100), false);
+    assert.equal(scope.rainMatches(value, 'any', 0, 4), true);
+    assert.equal(scope.rainMatches(value, 'dry', 0, 4), false);
+    assert.equal(scope.rainMatches(value, 'wet', 0, 4), false);
   }
   const any = {...controls, rainMode: 'any'};
   assert.equal(scope.matchesDay(28, 20, null, null, null, any), true);
@@ -118,7 +186,7 @@ test('climate chart leaves missing data gaps and retains both labelled axes', ()
 
 test('temperature range and accessible values stay synchronized for decimals, extremes and equality', () => {
   const input = () => ({value: '', min: '-5', max: '35', attributes: {}, setAttribute(name, value) { this.attributes[name] = value; }});
-  const elements = {'tmax-lo': input(), 'tmax-hi': input(), 'tmax-read': {}, 'tmax-dual': {querySelector: () => ({style: {}})}};
+  const elements = {'tmax-lo': input(), 'tmax-hi': input(), 'tmax-read': {}, 'tmax-dual': controlElement()};
   scope.document.getElementById = (id) => elements[id];
   for (const [lo, hi] of [['-5', '35'], ['19.5', '23'], ['20', '20']]) {
     elements['tmax-lo'].value = lo;
@@ -128,6 +196,560 @@ test('temperature range and accessible values stay synchronized for decimals, ex
     assert.equal(elements['tmax-lo'].attributes['aria-valuetext'], `${lo}°C`);
     assert.equal(elements['tmax-hi'].attributes['aria-valuetext'], `${hi}°C`);
   }
+});
+
+test('temperature modes retain independent selections from their first use', () => {
+  const state = scope.createTemperatureState();
+  assert.equal(state.mode, 'basic');
+  assert.equal(state.min, 15);
+  assert.equal(state.max, 35);
+  state.basic.lo = 19;
+  state.basic.hi = 23;
+  scope.switchTemperatureMode(state, 'advanced');
+  assert.equal(state.advanced.lo, 20);
+  assert.equal(state.advanced.hi, 28);
+  assert.equal(state.min, -5);
+  assert.equal(state.max, 40);
+  scope.commitTemperature(state, '-10', '45');
+  scope.switchTemperatureMode(state, 'basic');
+  assert.equal(state.basic.lo, 19);
+  assert.equal(state.basic.hi, 23);
+  state.basic.lo = 15;
+  state.basic.hi = 15;
+  scope.switchTemperatureMode(state, 'advanced');
+  assert.equal(state.advanced.lo, -10);
+  assert.equal(state.advanced.hi, 45);
+  assert.equal(state.min, -10);
+  assert.equal(state.max, 45);
+  scope.switchTemperatureMode(state, 'basic');
+  assert.equal(state.basic.lo, 15);
+  assert.equal(state.basic.hi, 15);
+});
+
+test('advanced temperature commits preserve arbitrary finite decimals and expand without shrinking until mode exit', () => {
+  const state = scope.createTemperatureState();
+  scope.switchTemperatureMode(state, 'advanced');
+  for (const [lo, hi] of [['-10', '45'], ['20.3', '28.27'], ['22.125', '22.125']]) {
+    const result = scope.commitTemperature(state, lo, hi);
+    assert.equal(result.lo, '');
+    assert.equal(result.hi, '');
+    assert.equal(state.advanced.lo, Number(lo));
+    assert.equal(state.advanced.hi, Number(hi));
+    assert.equal(state.min, -10);
+    assert.equal(state.max, 45);
+  }
+  scope.switchTemperatureMode(state, 'basic');
+  assert.equal(state.basic.lo, 20);
+  assert.equal(state.basic.hi, 28);
+  scope.switchTemperatureMode(state, 'advanced');
+  assert.equal(state.min, -5);
+  assert.equal(state.max, 40);
+  assert.equal(state.advanced.lo, 22.125);
+  assert.equal(state.advanced.hi, 22.125);
+});
+
+test('invalid temperature drafts leave all effective values and bounds unchanged', () => {
+  const state = scope.createTemperatureState();
+  scope.switchTemperatureMode(state, 'advanced');
+  const baseline = JSON.stringify(state);
+  for (const [lo, hi] of [['', '30'], ['20', ''], [' ', '30'], ['NaN', '30'], ['20', 'Infinity'], ['-1e309', '30'], ['31', '30']]) {
+    const result = scope.commitTemperature(state, lo, hi);
+    assert.ok(result.lo || result.hi);
+    assert.equal(JSON.stringify(state), baseline);
+  }
+  const broad = {...controls, rainMode: 'any', tempLo: -1000, tempHi: 1000};
+  assert.equal(scope.matchesDay(-10, -20, null, null, null, broad), true);
+  assert.equal(scope.matchesDay(28.5, 20.5, null, null, null, {...broad, tempLo: 20.3, tempHi: 28.27}), false);
+});
+
+function controlElement(value = '') {
+  const captured = new Set();
+  const classes = new Set();
+  return {value, style: {}, attributes: {}, listeners: {},
+    classList: {add(name) { classes.add(name); }, remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); }, toggle(name, active) { if (active) classes.add(name); else classes.delete(name); }},
+    setAttribute(name, val) { this.attributes[name] = val; },
+    getAttribute(name) { return this.attributes[name] || null; },
+    addEventListener(name, handler) { (this.listeners[name] ||= []).push(handler); },
+    querySelector() { return {style: {}}; },
+    getBoundingClientRect() { return {left: 100, width: 222}; },
+    setPointerCapture(id) { captured.add(id); },
+    hasPointerCapture(id) { return captured.has(id); },
+    releasePointerCapture(id) { captured.delete(id); },
+    focus() { this.focused = true; },
+    dispatchEvent(event) { this.fire(event.type); },
+    fire(name, detail = {}) {
+      let prevented = false;
+      const event = {target: this, pointerId: 1, button: 0, isPrimary: true, clientY: 50,
+        ...(typeof detail === 'string' ? {key: detail} : detail),
+        preventDefault() { prevented = true; }, stopPropagation() {}};
+      this.listeners[name]?.forEach((handler) => handler(event));
+      return prevented;
+    }
+  };
+}
+
+function temperatureHarness() {
+  const elements = Object.fromEntries(['tmax-lo', 'tmax-hi', 'tmax-read', 'tmax-dual', 'temperature-lo-number', 'temperature-hi-number', 'temperature-lo-error', 'temperature-hi-error', 'temperature-numbers'].map((id) => [id, controlElement()]));
+  const radios = [controlElement('basic'), controlElement('advanced')];
+  const context = vm.createContext({Event, document: {getElementById: (id) => elements[id], querySelectorAll: () => radios}});
+  vm.runInContext(script.slice(0, script.indexOf('\nload().then(')), context);
+  const updates = [];
+  const state = context.bindTemperatureControls((announce) => updates.push(announce));
+  return {elements, radios, state, updates};
+}
+
+test('temperature inputs apply on commit, retain invalid drafts and stay synchronized with sliders', () => {
+  const {elements: el, radios, state, updates} = temperatureHarness();
+  assert.equal(el['temperature-lo-number'].disabled, true);
+  assert.equal(el['temperature-numbers'].hidden, true);
+  radios[1].fire('change');
+  assert.equal(el['temperature-lo-number'].disabled, false);
+  el['temperature-lo-number'].value = '-10.3';
+  el['temperature-hi-number'].value = '45.27';
+  assert.equal(state.advanced.lo, 20);
+  assert.equal(el['temperature-lo-number'].fire('keydown', 'Enter'), true);
+  assert.equal(el['tmax-lo'].value, '-10.3');
+  assert.equal(el['tmax-hi'].value, '45.27');
+  assert.equal(el['tmax-read'].textContent, '-10.3~45.27℃');
+  assert.equal(el['tmax-lo'].attributes['aria-valuetext'], '-10.3°C');
+  const count = updates.length;
+  el['temperature-lo-number'].value = '';
+  el['temperature-lo-number'].fire('blur');
+  assert.equal(updates.length, count);
+  assert.equal(state.advanced.lo, -10.3);
+  assert.equal(el['temperature-lo-number'].attributes['aria-invalid'], 'true');
+  assert.ok(el['temperature-lo-error'].textContent);
+  assert.equal(el['tmax-lo'].fire('keydown', 'ArrowRight'), true);
+  assert.equal(state.advanced.lo, -9.8);
+  assert.equal(el['temperature-lo-number'].value, '-9.8');
+  assert.equal(el['temperature-lo-number'].attributes['aria-invalid'], 'false');
+  el['tmax-hi'].value = '20.21';
+  el['tmax-hi'].fire('input');
+  assert.equal(state.advanced.hi, 20);
+  assert.equal(el['temperature-hi-number'].value, '20');
+  el['tmax-lo'].fire('keydown', 'End');
+  assert.equal(state.advanced.lo, 20);
+  assert.equal(state.advanced.hi, 20);
+  radios[0].fire('change');
+  assert.equal(el['temperature-numbers'].hidden, true);
+  assert.equal(el['temperature-hi-number'].disabled, true);
+});
+
+test('switching temperature controls restores each mode without overwriting the other', () => {
+  const {elements: el, radios, state} = temperatureHarness();
+  el['tmax-lo'].value = '15'; el['tmax-lo'].fire('input');
+  el['tmax-hi'].value = '15'; el['tmax-hi'].fire('input');
+  radios[1].fire('change');
+  assert.equal(el['tmax-read'].textContent, '20~28℃');
+  el['temperature-lo-number'].value = '-12.3';
+  el['temperature-hi-number'].value = '42.7';
+  el['temperature-lo-number'].fire('keydown', 'Enter');
+  radios[0].fire('change');
+  assert.equal(el['tmax-read'].textContent, '15~15℃');
+  const root = el['tmax-dual'];
+  root.fire('pointerdown', {clientX: 111});
+  root.fire('pointermove', {clientX: 161});
+  root.fire('pointerup');
+  assert.equal(el['tmax-read'].textContent, '15~20℃');
+  assert.equal(state.basic.hi, 20);
+  radios[1].fire('change');
+  assert.equal(el['tmax-read'].textContent, '-12.3~42.7℃');
+  assert.equal(el['temperature-lo-number'].value, '-12.3');
+  assert.equal(el['temperature-hi-number'].value, '42.7');
+});
+
+function overlapHarness(min, max, step, low, high = low) {
+  const lo = Object.assign(controlElement(String(low)), {min: String(min), max: String(max), step: String(step)});
+  const hi = Object.assign(controlElement(String(high)), {min: String(min), max: String(max), step: String(step)});
+  const root = controlElement();
+  const updates = [];
+  for (const input of [lo, hi]) {
+    input.addEventListener('input', () => { scope.clampRange(lo, hi, input); updates.push('input'); });
+    input.addEventListener('change', () => updates.push('change'));
+  }
+  scope.bindDualPointer(lo, hi, root);
+  const position = (value) => 111 + (value - min) / (max - min) * 200;
+  return {lo, hi, root, updates, position};
+}
+
+test('overlapping endpoints separate by drag direction at the minimum, middle and maximum of all ranges', () => {
+  for (const [min, max, step] of [[15, 35, 0.5], [-5, 40, 0.5], [0, 4, 1], [1, 12, 0.5], [5, 70, 1]]) {
+    const middle = min + Math.floor((max - min) / step / 2) * step;
+    for (const [value, direction] of [[min, 1], [middle, -1], [middle, 1], [max, -1]]) {
+      const {lo, hi, root, updates, position} = overlapHarness(min, max, step, value);
+      const start = position(value);
+      assert.equal(root.fire('pointerdown', {clientX: start}), true);
+      assert.equal(root.hasPointerCapture(1), true);
+      root.fire('pointermove', {clientX: start + direction * 50});
+      assert.ok(Number(lo.value) < Number(hi.value));
+      assert.equal(direction > 0 ? Number(lo.value) : Number(hi.value), value);
+      const moving = Number(direction > 0 ? hi.value : lo.value);
+      assert.ok(Math.abs((moving - min) / step - Math.round((moving - min) / step)) < 1e-10);
+      root.fire('pointerup');
+      root.fire('lostpointercapture');
+      assert.equal(root.hasPointerCapture(1), false);
+      assert.deepEqual(updates, ['input', 'change']);
+    }
+  }
+});
+
+test('overlap dragging respects crossing limits and cancels without blocking vertical scrolling', () => {
+  const {lo, hi, root, updates} = overlapHarness(15, 35, 0.5, 25);
+  root.fire('pointerdown', {clientX: 211});
+  assert.equal(root.fire('pointermove', {clientX: 212, clientY: 100}), false);
+  root.fire('pointercancel');
+  assert.equal(root.hasPointerCapture(1), false);
+  assert.deepEqual(updates, []);
+  root.fire('pointerdown', {clientX: 211});
+  root.fire('pointermove', {clientX: 261});
+  root.fire('pointermove', {clientX: 111});
+  assert.equal(lo.value, '25');
+  assert.equal(hi.value, '25');
+  root.fire('pointercancel');
+  const count = updates.length;
+  root.fire('pointermove', {clientX: 311});
+  assert.equal(updates.length, count);
+  assert.equal(updates.at(-1), 'change');
+});
+
+test('nearby endpoints use the closest handle; separated, disabled and secondary pointers keep native behavior', () => {
+  for (const endpoint of ['lo', 'hi']) {
+    const {lo, hi, root, position} = overlapHarness(15, 35, 0.5, 25, 26);
+    const start = position(endpoint === 'lo' ? 25 : 26);
+    root.fire('pointerdown', {clientX: start});
+    root.fire('pointermove', {clientX: start + (endpoint === 'lo' ? -50 : 50)});
+    root.fire('pointerup');
+    assert.ok(endpoint === 'lo' ? Number(lo.value) < 25 : Number(hi.value) > 26);
+    assert.equal(endpoint === 'lo' ? Number(hi.value) : Number(lo.value), endpoint === 'lo' ? 26 : 25);
+  }
+  const {lo, root} = overlapHarness(15, 35, 0.5, 15, 35);
+  assert.equal(root.fire('pointerdown', {clientX: 111}), false);
+  const near = overlapHarness(15, 35, 0.5, 25);
+  assert.equal(near.root.fire('pointerdown', {clientX: 111}), false);
+  assert.equal(near.root.fire('pointerdown', {clientX: 211, isPrimary: false}), false);
+  assert.equal(near.root.fire('pointerdown', {clientX: 211, button: 2}), false);
+  near.lo.disabled = true;
+  assert.equal(near.root.fire('pointerdown', {clientX: 211}), false);
+  assert.equal(lo.value, '15');
+});
+
+function rangeHarness(min, max, step, lower, upper) {
+  const result = overlapHarness(min, max, step, lower, upper);
+  // 使用獨立根節點，讓每個事件只經過一個共用控制器。
+  result.root = controlElement();
+  result.rangeUpdates = [];
+  result.controller = scope.bindDualPointer(result.lo, result.hi, result.root, {step,
+    onRange(lo, hi, confirm) {
+      result.lo.value = String(lo);
+      result.hi.value = String(hi);
+      result.rangeUpdates.push({lo, hi, confirm});
+    }});
+  result.start = result.position((lower + upper) / 2);
+  return result;
+}
+
+test('all four selected ranges translate from the original pair with one atomic update per effective movement', () => {
+  for (const [min, max, step, low, high] of [[15, 35, 0.5, 20, 28], [0, 4, 1, 1, 3], [1, 12, 0.5, 4, 8], [5, 70, 1, 20, 40]]) {
+    const {lo, hi, root, rangeUpdates, updates, start} = rangeHarness(min, max, step, low, high);
+    const dx = step / (max - min) * 200;
+    root.fire('pointerdown', {clientX: start});
+    root.fire('pointermove', {clientX: start + Math.max(4, dx)});
+    const moved = Math.round(Math.max(4, dx) / 200 * (max - min) / step) * step;
+    assert.equal(Number(lo.value), low + moved);
+    assert.equal(Number(hi.value), high + moved);
+    assert.equal(root.classList.contains('is-shifting'), true);
+    root.fire('pointermove', {clientX: start + Math.max(4, dx)});
+    assert.equal(rangeUpdates.length, 1);
+    root.fire('pointermove', {clientX: start - Math.max(4, dx)});
+    assert.equal(Number(lo.value), low - moved);
+    assert.equal(Number(hi.value), high - moved);
+    root.fire('pointerup');
+    root.fire('lostpointercapture');
+    assert.deepEqual(rangeUpdates.map((update) => update.confirm), [false, false, true]);
+    assert.equal(root.hasPointerCapture(1), false);
+    assert.equal(root.classList.contains('is-shifting'), false);
+    assert.deepEqual(updates, []);
+  }
+});
+
+test('range translation stops at both bounds without narrowing, re-accumulating or moving a full interval', () => {
+  for (const [min, max, step, low, high] of [[15, 35, 0.5, 20, 28], [0, 4, 1, 1, 3], [1, 12, 0.5, 4, 8], [5, 70, 1, 20, 40]]) {
+    const {lo, hi, root, rangeUpdates, start} = rangeHarness(min, max, step, low, high);
+    root.fire('pointerdown', {clientX: start});
+    root.fire('pointermove', {clientX: start - 1000});
+    assert.equal(Number(lo.value), min);
+    assert.equal(Number(hi.value) - Number(lo.value), high - low);
+    root.fire('pointermove', {clientX: start + 1000});
+    assert.equal(Number(hi.value), max);
+    assert.equal(Number(hi.value) - Number(lo.value), high - low);
+    root.fire('pointermove', {clientX: start});
+    assert.equal(Number(lo.value), low);
+    assert.equal(Number(hi.value), high);
+    root.fire('pointerup');
+    assert.equal(rangeUpdates.filter((update) => update.confirm).length, 1);
+    const full = rangeHarness(min, max, step, min, max);
+    assert.equal(full.root.fire('pointerdown', {clientX: full.start}), false);
+    full.root.fire('pointermove', {clientX: full.start + 100});
+    full.lo.fire('keydown', {key: 'ArrowRight', shiftKey: true});
+    assert.deepEqual(full.rangeUpdates, []);
+  }
+});
+
+test('whole-range gestures require horizontal intent and clean up touch cancellation, capture loss and collapse', () => {
+  for (const end of ['pointerup', 'pointercancel', 'lostpointercapture', 'collapse']) {
+    const {lo, hi, root, rangeUpdates, controller, start} = rangeHarness(15, 35, 0.5, 20, 28);
+    root.fire('pointerdown', {clientX: start, pointerType: 'touch'});
+    assert.equal(root.fire('pointermove', {clientX: start + 3, pointerType: 'touch'}), false);
+    assert.deepEqual(rangeUpdates, []);
+    root.fire('pointermove', {clientX: start + 20, pointerType: 'touch'});
+    assert.equal(lo.value, '22');
+    assert.equal(hi.value, '30');
+    if (end === 'collapse') { lo.disabled = true; hi.disabled = true; controller.cancel(); }
+    else root.fire(end);
+    assert.equal(root.hasPointerCapture(1), false);
+    assert.equal(root.classList.contains('is-shifting'), false);
+    const count = rangeUpdates.length;
+    root.fire('pointermove', {clientX: start + 50});
+    root.fire('pointerup');
+    assert.equal(rangeUpdates.length, count);
+    assert.equal(rangeUpdates.filter((update) => update.confirm).length, end === 'collapse' ? 0 : 1);
+  }
+  const vertical = rangeHarness(15, 35, 0.5, 20, 28);
+  vertical.root.fire('pointerdown', {clientX: vertical.start, pointerType: 'touch'});
+  assert.equal(vertical.root.fire('pointermove', {clientX: vertical.start + 4, clientY: 70, pointerType: 'touch'}), false);
+  assert.equal(vertical.root.hasPointerCapture(1), false);
+  vertical.root.fire('pointermove', {clientX: vertical.start + 30, clientY: 70});
+  assert.deepEqual(vertical.rangeUpdates, []);
+});
+
+test('narrow ranges and equality keep endpoint priority; separated endpoint hit boxes do not start whole dragging', () => {
+  for (const [low, high] of [[25, 25], [25, 26]]) {
+    const result = rangeHarness(15, 35, 0.5, low, high);
+    result.root.fire('pointerdown', {clientX: result.position(high)});
+    result.root.fire('pointermove', {clientX: result.position(high) + 50});
+    result.root.fire('pointerup');
+    assert.equal(result.lo.value, String(low));
+    assert.ok(Number(result.hi.value) > high);
+    assert.deepEqual(result.rangeUpdates, []);
+  }
+  const result = rangeHarness(15, 35, 0.5, 20, 28);
+  for (const point of [result.position(20) + 10.9, result.position(28) - 10.9]) {
+    assert.equal(result.root.fire('pointerdown', {clientX: point}), false);
+    assert.equal(result.root.hasPointerCapture(1), false);
+  }
+});
+
+test('Shift keys translate all ranges, reach exact boundaries and leave ordinary endpoint keys untouched', () => {
+  for (const [min, max, step, low, high] of [[15, 35, 0.5, 20, 28], [0, 4, 1, 1, 3], [1, 12, 0.5, 4, 8], [5, 70, 1, 20, 40]]) {
+    const {lo, hi, rangeUpdates} = rangeHarness(min, max, step, low, high);
+    assert.equal(lo.fire('keydown', {key: 'ArrowRight'}), false);
+    assert.equal(lo.fire('keydown', {key: 'ArrowRight', shiftKey: true}), true);
+    assert.equal(Number(lo.value), low + step);
+    assert.equal(Number(hi.value), high + step);
+    hi.fire('keydown', {key: 'ArrowDown', shiftKey: true});
+    assert.equal(Number(lo.value), low);
+    assert.equal(Number(hi.value), high);
+    hi.fire('keydown', {key: 'End', shiftKey: true});
+    assert.equal(Number(hi.value), max);
+    lo.fire('keydown', {key: 'Home', shiftKey: true});
+    assert.equal(Number(lo.value), min);
+    assert.equal(Number(hi.value), min + high - low);
+    const count = rangeUpdates.length;
+    lo.fire('keydown', {key: 'Home', shiftKey: true});
+    lo.disabled = true;
+    hi.fire('keydown', {key: 'ArrowRight', shiftKey: true});
+    assert.equal(rangeUpdates.length, count);
+    assert.ok(rangeUpdates.every((update) => update.confirm));
+    assert.match(hi.attributes['aria-describedby'], /range-help/);
+  }
+});
+
+test('advanced range movement preserves decimal pairs and mode memory, allows substep boundary stops and cancels mode changes', () => {
+  const {elements: el, radios, state, updates} = temperatureHarness();
+  radios[1].fire('change');
+  el['temperature-lo-number'].value = '20.3'; el['temperature-hi-number'].value = '28.27';
+  el['temperature-lo-number'].fire('keydown', 'Enter');
+  updates.length = 0;
+  el['tmax-lo'].fire('keydown', {key: 'ArrowRight', shiftKey: true});
+  assert.equal(state.advanced.lo, 20.8);
+  assert.equal(state.advanced.hi, 28.77);
+  assert.equal(el['temperature-lo-number'].value, '20.8');
+  assert.equal(el['temperature-hi-number'].value, '28.77');
+  assert.deepEqual(updates, [true]);
+  el['tmax-hi'].fire('keydown', {key: 'End', shiftKey: true});
+  assert.equal(state.advanced.lo, 32.03);
+  assert.equal(state.advanced.hi, 40);
+  el['tmax-lo'].fire('keydown', {key: 'Home', shiftKey: true});
+  assert.equal(state.advanced.lo, -5);
+  assert.equal(state.advanced.hi, 2.97);
+  el['tmax-lo'].fire('keydown', {key: 'ArrowRight', shiftKey: true});
+  const saved = JSON.stringify(state.advanced);
+  const root = el['tmax-dual'];
+  root.fire('pointerdown', {clientX: 111 + ((-4.5 + 3.47) / 2 + 5) / 45 * 200});
+  root.fire('pointermove', {clientX: 160});
+  const moved = JSON.stringify(state.advanced);
+  assert.notEqual(moved, saved);
+  const count = updates.length;
+  radios[0].fire('change');
+  root.fire('pointermove', {clientX: 300});
+  root.fire('pointerup');
+  assert.equal(updates.length, count + 1);
+  assert.equal(el['tmax-read'].textContent, '20~28℃');
+  radios[1].fire('change');
+  assert.equal(JSON.stringify(state.advanced), moved);
+  assert.equal(state.min, -5);
+  assert.equal(state.max, 40);
+  const close = scope.shiftRange(31.8, 39.77, -5, 40, 0.5, 0.5);
+  assert.equal(close.lo, 32.03);
+  assert.equal(close.hi, 40);
+});
+
+function weatherPairHarness() {
+  const elements = {};
+  const specs = [['rain', 'rain-lo', 'rain-hi', 0, 4, 1, 0, 1], ['sun', 'sun-min', 'sun-max', 1, 12, 0.5, 1, 3], ['wind', 'wind-min', 'wind-max', 5, 70, 1, 10, 20]];
+  for (const [name, lowId, highId, min, max, step, lower, upper] of specs) {
+    const root = elements[`${name}-dual`] = controlElement();
+    const pair = [lower, upper].map((value) => Object.assign(controlElement(String(value)), {min: String(min), max: String(max), step: String(step), parentElement: root}));
+    elements[lowId] = pair[0]; elements[highId] = pair[1];
+    elements[`${name}-extra`] = {querySelectorAll: () => pair};
+  }
+  const paints = [], updates = [];
+  const controls = {rainMode: 'wet', useSun: true, useWind: true};
+  const context = vm.createContext({
+    $: (id) => elements[id], clampRange: scope.clampRange, bindDualPointer: scope.bindDualPointer, weather: {},
+    paintReads() { paints.push(specs.map(([, low, high]) => [Number(elements[low].value), Number(elements[high].value)])); },
+    schedule(announce) { updates.push(['schedule', announce]); }, render(announce, best) { updates.push(['render', announce, best]); },
+    readControls: () => controls,
+  });
+  vm.runInContext(script.slice(script.indexOf('  const pairControllers = []'), script.indexOf('  for (const radio of document.querySelectorAll(\'.segments input:not(')), context);
+  return {elements, specs, paints, updates, controls, context};
+}
+
+test('weather pair wiring paints both new values before scheduling once and cancels collapsed controls', () => {
+  const result = weatherPairHarness(), {elements, specs, paints, updates, controls, context} = result;
+  for (let index = 0; index < specs.length; index++) {
+    const [name, lowId, highId, min, max, , lower, upper] = specs[index];
+    const root = elements[`${name}-dual`];
+    const start = 111 + ((lower + upper) / 2 - min) / (max - min) * 200;
+    const shift = name === 'rain' ? 2 : name === 'sun' ? 5 : 30;
+    root.fire('pointerdown', {clientX: start});
+    root.fire('pointermove', {clientX: start + shift / (max - min) * 200});
+    assert.deepEqual(paints.at(-1)[index], [lower + shift, upper + shift]);
+    assert.deepEqual(updates.at(-1), ['schedule', false]);
+    root.fire('pointerup');
+    assert.deepEqual(updates.at(-1), ['render', true, true]);
+    assert.equal(paints.length, index * 2 + 2);
+    assert.equal(updates.length, index * 2 + 2);
+    assert.equal(Number(elements[lowId].value), lower + shift);
+    assert.equal(Number(elements[highId].value), upper + shift);
+  }
+  const root = elements['sun-dual'];
+  root.fire('pointerdown', {clientX: 111 + (7 - 1) / 11 * 200});
+  root.fire('pointermove', {clientX: 200});
+  assert.equal(root.hasPointerCapture(1), true);
+  controls.useSun = false;
+  context.syncModes();
+  assert.equal(root.hasPointerCapture(1), false);
+  assert.equal(elements['sun-extra'].hidden, true);
+  assert.equal(elements['sun-min'].disabled, true);
+  assert.equal(elements['sun-max'].disabled, true);
+  const count = updates.length;
+  root.fire('pointerup');
+  root.fire('pointermove', {clientX: 300});
+  assert.equal(updates.length, count);
+  controls.useSun = true;
+  context.syncModes();
+  assert.equal(elements['sun-min'].disabled, false);
+  assert.equal(elements['sun-extra'].hidden, false);
+});
+
+function recommendationHarness() {
+  const towns = [
+    {code: 'north-low', county: '臺北市', name: '臺北市中正區', cell: 0},
+    {code: 'north-high', county: '臺北市', name: '臺北市大安區', cell: 1},
+    {code: 'south', county: '高雄市', name: '高雄市楠梓區', cell: 2}
+  ];
+  const timers = new Map(), shown = [], centered = [], highlights = new Map(), live = {};
+  let timerId = 0, cancellations = 0;
+  const state = vm.createContext({
+    selected: '', timer: null, rankingRows: [], scores: [25, 75, 150], meta: {towns}, weather: {},
+    regionInputs: ['北部', '南部'].map((value) => ({value, checked: true})),
+    paths: new Map(towns.map((town) => [town.code, {dataset: {code: town.code}, setAttribute() {},
+      classList: {toggle(name, active) { highlights.set(town.code, active); }}}])),
+    rankTowns: scope.rankTowns, colorFor: scope.colorFor, paintReads() {}, compute() {},
+    readControls: () => ({rainMode: 'any'}), $: () => live,
+    renderRanking() {}, showTown() { shown.push(state.selected); },
+    cancelCamera() { cancellations++; }, centerTown(path) { centered.push(path.dataset.code); },
+    window: {clearTimeout(id) { timers.delete(id); }, setTimeout(callback) { timers.set(++timerId, callback); return timerId; }}
+  });
+  const block = script.slice(script.indexOf('  function render('), script.indexOf('  function bindPair('));
+  vm.runInContext(block, state);
+  return {state, shown, centered, highlights, timers, live, get cancellations() { return cancellations; }, flush() {
+    const callbacks = [...timers.values()];
+    timers.clear();
+    callbacks.forEach((callback) => callback());
+  }};
+}
+
+test('condition changes select the highest score in checked regions and update details and outline without panning', () => {
+  const result = recommendationHarness(), {state, shown, highlights, centered} = result;
+  state.render(false, true);
+  assert.equal(state.selected, 'south');
+  assert.equal(shown.at(-1), 'south');
+  assert.equal(highlights.get('south'), true);
+  state.scores = [25, 175, 150];
+  state.schedule(false);
+  state.schedule(false);
+  assert.equal(result.timers.size, 1);
+  result.flush();
+  assert.equal(state.selected, 'north-high');
+  assert.equal(shown.at(-1), 'north-high');
+  assert.equal(highlights.get('south'), false);
+  assert.equal(highlights.get('north-high'), true);
+  state.regionInputs[0].checked = false;
+  state.render(true, true);
+  assert.equal(state.selected, 'south');
+  assert.match(result.live.textContent, /最多是高雄市楠梓區 150.0 天/);
+  assert.deepEqual(centered, []);
+  assert.equal(result.cancellations, 3);
+});
+
+test('manual township choices survive pending work and redraws until the next condition change', () => {
+  const result = recommendationHarness(), {state, centered} = result;
+  state.render(false, true);
+  state.schedule(false);
+  state.choose('north-low');
+  assert.equal(result.timers.size, 0);
+  result.flush();
+  state.render(false);
+  assert.equal(state.selected, 'north-low');
+  assert.deepEqual(centered, ['north-low']);
+  state.schedule(false);
+  result.flush();
+  assert.equal(state.selected, 'south');
+  assert.deepEqual(centered, ['north-low']);
+});
+
+test('automatic recommendation resolves zero-score ties consistently and clears when every region is unchecked', () => {
+  const {state, shown, highlights, live} = recommendationHarness();
+  state.scores = [0, 0, 0];
+  const expected = scope.rankTowns(state.meta.towns.map((town) => ({...town, days: 0})), new Set(['北部', '南部']), 'days', 'descending')[0].code;
+  state.render(false, true);
+  assert.equal(state.selected, expected);
+  state.regionInputs.forEach((input) => { input.checked = false; });
+  state.render(true, true);
+  assert.equal(state.selected, '');
+  assert.equal(shown.at(-1), '');
+  assert.ok([...highlights.values()].every((active) => !active));
+  assert.equal(live.textContent, '目前勾選分區沒有可顯示的鄉鎮。');
+});
+
+test('dual track positioning remains finite for extreme finite input bounds', () => {
+  const style = {};
+  scope.paintDual({min: '-1e308', max: '1e308', value: '-1e308'}, {value: '1e308'}, {...controlElement(), querySelector: () => ({style})});
+  assert.equal(style.left, 'calc(11px + (100% - 22px) * 0)');
+  assert.equal(style.width, 'calc((100% - 22px) * 1)');
 });
 
 test('town centering places rendered bounds in the viewport center at every existing scale', () => {

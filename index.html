@@ -32,6 +32,10 @@
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   button, select, input { font: inherit; }
   button { cursor: pointer; }
+  button, .segments label, .region-filters label, summary, .dual, #map {
+    -webkit-user-select: none;
+    user-select: none;
+  }
   h1, h2 { color: var(--heading); line-height: 1.2; }
   h1 { margin: 0; font-size: 1.5rem; }
   h2 { margin: 0 0 8px; font-size: 1rem; }
@@ -74,6 +78,13 @@
   .temperature-range .hot { color: #DC2626; }
   .temperature-range > .icon { align-self: flex-end; margin-bottom: 13px; }
   .temperature-output { display: block; text-align: center; color: var(--heading); font-size: 0.875rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .temperature-range { margin-top: 8px; }
+  .temperature-numbers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .temperature-numbers label { min-width: 0; font-size: 0.75rem; color: #526077; }
+  .temperature-numbers input { display: block; width: 100%; min-width: 0; min-height: 44px; margin-top: 4px; padding: 6px 8px; border: 1px solid #C3D0E3; border-radius: 5px; background: white; font-size: 1rem; color: var(--ink); }
+  .temperature-numbers input[aria-invalid="true"] { border-color: #B91C1C; }
+  .input-error { display: block; color: #B91C1C; margin-top: 4px; }
+  .map-title { margin-bottom: 12px; color: var(--ink); font-size: 1.125rem; }
   .select-label {
     display: flex;
     align-items: center;
@@ -83,7 +94,7 @@
   .icon { width: 20px; height: 20px; flex: none; color: var(--primary); }
   .value { font-variant-numeric: tabular-nums; font-weight: 650; }
   .hint { color: var(--hint); font-size: 0.875rem; margin-top: 4px; }
-  .dual { position: relative; height: 44px; }
+  .dual { position: relative; height: 44px; touch-action: pan-y; }
   .dual-track, .dual-fill {
     position: absolute;
     top: 20px;
@@ -91,8 +102,18 @@
     border-radius: 999px;
   }
   .dual-track { left: 11px; right: 11px; background: var(--track-gradient, linear-gradient(90deg, #38A4FA 0%, #BCE6FF 30%, #F8FAFC 50%, #FBCDDD 72%, #F57870 100%)); }
-  .dual-fill { top: 18px; height: 8px; border: 1px solid #64748B; background: transparent; }
+  .dual-fill { top: 16px; height: 12px; border: 2px solid var(--primary); background: #DBEAFE80; box-shadow: 0 0 0 2px white; pointer-events: none; }
+  .dual.can-shift .dual-fill::after { content: ""; position: absolute; left: calc(11px - 2px); right: calc(11px - 2px); top: 50%; height: 44px; transform: translateY(-50%); pointer-events: auto; cursor: grab; }
+  .dual.is-shifting .dual-fill { border-color: #172554; box-shadow: 0 0 0 2px white, 0 0 0 4px #93C5FD; }
+  .dual.is-shifting, .dual.is-shifting .dual-fill::after { cursor: grabbing; }
   #rain-dual { --track-gradient: linear-gradient(90deg, #DBF2FF, #73B6EB 50%, #4264C8); }
+  .rain-levels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0 -5px 8px; color: #526077; font-size: 0.7rem; text-align: center; }
+  #sun-dual { --track-gradient: linear-gradient(90deg, #FDE68A, #B45309); }
+  #wind-dual { --track-gradient: linear-gradient(90deg, #BAE6FD, #1D4ED8); }
+  .weather-range { margin-top: 8px; }
+  .weather-range output { display: block; text-align: center; font-size: 0.875rem; color: var(--heading); font-variant-numeric: tabular-nums; }
+  .touch-hint { display: none; }
+  @media (pointer: coarse) { .touch-hint { display: block; position: absolute; bottom: 8px; margin: 0; padding: 4px 8px; border-radius: 4px; background: #FFFFFFE6; color: #526077; font-size: 0.75rem; pointer-events: none; } }
   .dual input[type="range"] {
     position: absolute;
     left: 0;
@@ -104,6 +125,7 @@
     pointer-events: none;
     -webkit-appearance: none;
     appearance: none;
+    z-index: 1;
   }
   .dual input[type="range"]::-webkit-slider-runnable-track {
     height: 4px;
@@ -135,16 +157,6 @@
     border: 2px solid #fff;
     cursor: grab;
   }
-  .extra { display: flex; align-items: center; gap: 8px; margin: 0 0 8px 28px; }
-  .extra label { flex: none; white-space: nowrap; font-size: 0.875rem; color: var(--hint); }
-  .single {
-    flex: 1;
-    min-width: 0;
-    width: 0;
-    margin: 0;
-    accent-color: var(--primary);
-    min-height: 44px;
-  }
   .conditions {
     padding: 18px;
     border-color: #DCE3ED;
@@ -175,41 +187,17 @@
   .weather-option legend .icon { vertical-align: -4px; margin-right: 4px; }
   .segments { display: flex; gap: 3px; padding: 3px; border: 1px solid #DCE3ED; border-radius: 7px; background: #EDF1F7; }
   .segments label { position: relative; flex: 1; min-width: 0; cursor: pointer; }
-  .segments span { display: flex; align-items: center; justify-content: center; min-height: 38px; padding: 6px 4px; border: 1px solid transparent; border-radius: 5px; font-size: 0.875rem; white-space: nowrap; color: #526077; }
+  .segments input[type="radio"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; clip: auto; overflow: visible; opacity: 0; z-index: 1; cursor: pointer; }
+  .segments span { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 6px 4px; border: 1px solid transparent; border-radius: 5px; font-size: 0.875rem; white-space: nowrap; color: #526077; }
   .segments input:checked + span { background: #FFF; color: var(--primary); border-color: #C3D0E3; box-shadow: 0 1px 3px rgb(15 23 42 / 6%); font-weight: 650; }
   .segments input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
-  .segments input:disabled + span { opacity: 0.45; cursor: wait; }
+  .segments input:disabled { cursor: not-allowed; }
+  .segments input:disabled + span { opacity: 0.45; }
   .weather-option:hover { border-color: #94A9CA; }
   .weather-option:focus-within { border-color: var(--primary); }
   .weather-option > .hint { margin: 8px 0 0; }
-  .conditions .extra { gap: 8px; margin: 0; }
-  .range-row { display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; align-items: center; column-gap: 6px; }
-  .range-row label { font-size: 0.75rem; color: #526077; }
-  .range-row .dual { min-width: 0; }
   .data-status { margin-top: 14px; padding: 10px; border-radius: 6px; background: #FFF7ED; color: #9A3412; font-size: 0.8rem; }
-  .data-status button { margin-top: 8px; min-height: 40px; border: 1px solid #9A3412; border-radius: 5px; padding: 4px 12px; background: white; color: #9A3412; }
-  .conditions .extra label { color: #526077; font-size: 0.75rem; }
-  .conditions .single {
-    appearance: none;
-    background: transparent;
-    cursor: pointer;
-  }
-  #sun-min { --track-gradient: linear-gradient(90deg, #FDE68A, #B45309); }
-  #wind-max { --track-gradient: linear-gradient(90deg, #BAE6FD, #1D4ED8); }
-  .conditions .single::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: var(--track-gradient); }
-  .conditions .single::-webkit-slider-thumb {
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    margin-top: -7px;
-    border: 2px solid #FFF;
-    border-radius: 50%;
-    background: var(--primary);
-    box-shadow: 0 1px 3px rgb(15 23 42 / 16%);
-  }
-  .conditions .single::-moz-range-track { height: 4px; border-radius: 4px; background: var(--track-gradient); }
-  .conditions .single::-moz-range-progress { background: transparent; }
-  .conditions .single::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #FFF; border-radius: 50%; background: var(--primary); }
+  .data-status button { margin-top: 8px; min-height: 44px; border: 1px solid #9A3412; border-radius: 5px; padding: 4px 12px; background: white; color: #9A3412; }
   .conditions input.bar-handle { touch-action: pan-y; }
   .conditions input.bar-handle::-webkit-slider-thumb { width: 22px; height: 44px; margin-top: -20px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
   .conditions input.bar-handle::-moz-range-thumb { width: 22px; height: 44px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
@@ -231,7 +219,7 @@
     height: 100%;
     width: 100%;
     display: block;
-    touch-action: none;
+    touch-action: pan-y;
     background: #E9EEF6;
     overflow: hidden;
   }
@@ -259,11 +247,13 @@
     margin-top: 2px;
   }
   .detail { border-radius: 10px; padding: 18px; min-width: 0; container-type: inline-size; }
-  .detail-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
-  .detail-head .select-label { min-width: 0; flex: 0 1 300px; max-width: 300px; }
-  .annual { flex: none; text-align: right; }
-  .annual > span { display: block; color: #526077; font-size: 0.75rem; }
-  .big { font-size: clamp(1.25rem, 8cqw, 3.6rem); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; line-height: 1.25; }
+  .detail-head { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+  .place-choice { display: flex; align-items: center; gap: 8px; flex: 0 1 430px; min-width: 0; width: 100%; }
+  .place-lead, .place-tail { white-space: nowrap; }
+  .detail-head .select-label { min-width: 0; flex: 1; max-width: 300px; }
+  .annual { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: #526077; }
+  .annual > span { white-space: nowrap; }
+  .big { color: var(--ink); font-size: clamp(2rem, 8cqw, 3.6rem); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; line-height: 1.25; }
   .empty-state { padding: 24px 0 8px; color: #526077; font-size: 0.875rem; }
   .chart-section { margin-top: 24px; }
   .chart-section + .chart-section { padding-top: 22px; border-top: 1px solid #E2E8F0; }
@@ -281,7 +271,7 @@
   .swatch.low { background: none; height: 0; border-top: 3px dashed #2879C5; }
   .swatch.rain { height: 10px; border-radius: 2px; background: #BADEEF; }
   details { margin-top: 16px; color: #526077; font-size: 0.8rem; }
-  summary { cursor: pointer; padding: 10px 0; min-height: 40px; color: var(--primary); }
+  summary { cursor: pointer; padding: 10px 0; min-height: 44px; color: var(--primary); }
   .table-scroll { max-width: 100%; overflow-x: auto; }
   table { width: 100%; min-width: 580px; border-collapse: collapse; font-variant-numeric: tabular-nums; text-align: right; }
   th, td { border-bottom: 1px solid #E2E8F0; padding: 8px; white-space: nowrap; }
@@ -298,7 +288,7 @@
   }
   .lists { display: grid; gap: 12px; min-width: 0; border-radius: 10px; }
   .region-filters { display: flex; flex-wrap: wrap; gap: 0 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
-  .region-filters label { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; font-size: 0.875rem; cursor: pointer; }
+  .region-filters label { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 0.875rem; cursor: pointer; }
   .region-filters input { margin: 0; width: 16px; height: 16px; accent-color: var(--primary); }
   .ranking-scroll { max-height: 480px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--border); }
   .ranking-table { min-width: 0; table-layout: fixed; font-size: 0.875rem; }
@@ -357,7 +347,7 @@
     .detail { padding: 14px 12px; }
     .detail-head { gap: 8px; }
     .detail-head select { font-size: 0.875rem; padding: 6px; }
-    .annual > span { font-size: 0.65rem; }
+    .annual { font-size: 0.875rem; }
     .legend-labels { font-size: 0.65rem; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -373,22 +363,31 @@
 </header>
 <p id="banner" role="status">正在讀取 30 年的每日天氣…</p>
 <p id="live" class="sr-only" aria-live="polite"></p>
+<p id="range-help" class="sr-only">拖曳把手調整上下限，拖曳選取段可保持區間寬度一起移動。聚焦任一把手後，Shift 加方向鍵移動整段，Shift 加 Home 或 End 移至邊界；一般方向鍵只調整該端點。</p>
 <div class="shell">
     <section class="panel conditions">
       <h2>你的舒適條件</h2>
       <fieldset class="weather-option" id="temperature-condition">
         <legend>氣溫</legend>
+        <div class="segments">
+          <label><input class="sr-only" type="radio" name="temperature-mode" value="basic" checked><span>基本</span></label>
+          <label><input class="sr-only" type="radio" name="temperature-mode" value="advanced"><span>進階</span></label>
+        </div>
         <div class="temperature-range">
           <svg class="icon cold" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9 4.5l3 3 3-3M9 19.5l3-3 3 3M4 11l4-1-1-4M20 13l-4 1 1 4M7 18l1-4-4-1M17 6l-1 4 4 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div class="dual" id="tmax-dual">
           <div class="dual-track"></div>
           <div class="dual-fill"></div>
-          <input id="tmax-lo" class="bar-handle" type="range" min="-5" max="35" step="0.5" value="20" aria-label="氣溫下限">
-          <input id="tmax-hi" class="bar-handle" type="range" min="-5" max="35" step="0.5" value="28" aria-label="氣溫上限">
+          <input id="tmax-lo" class="bar-handle" type="range" min="15" max="35" step="0.5" value="20" aria-label="氣溫下限">
+          <input id="tmax-hi" class="bar-handle" type="range" min="15" max="35" step="0.5" value="28" aria-label="氣溫上限">
           </div>
           <svg class="icon hot" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3c1 5-3 6-3 9-2-1-2-3-2-3s-4 4-4 7a8 8 0 0 0 16 0c0-5-4-9-7-13zM12 14c2 2 3 3 3 5a3 3 0 0 1-6 0c0-2 2-3 3-5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <output class="temperature-output" id="tmax-read" for="tmax-lo tmax-hi" aria-live="off">20~28℃</output>
+        <div class="temperature-numbers" id="temperature-numbers" hidden>
+          <label>下限（℃）<input id="temperature-lo-number" type="number" step="any" inputmode="decimal" value="20" disabled aria-describedby="temperature-lo-error"><span class="input-error" id="temperature-lo-error" aria-live="polite"></span></label>
+          <label>上限（℃）<input id="temperature-hi-number" type="number" step="any" inputmode="decimal" value="28" disabled aria-describedby="temperature-hi-error"><span class="input-error" id="temperature-hi-error" aria-live="polite"></span></label>
+        </div>
       </fieldset>
       <fieldset class="weather-option" id="rain-condition">
         <legend><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16a4 4 0 0 1-.4-8 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 18 16M8 18.5l-1 2M12 18.5l-1 2M16 18.5l-1 2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>降雨</legend>
@@ -398,17 +397,16 @@
           <label><input class="sr-only" type="radio" name="rain-mode" value="wet" disabled><span>有雨</span></label>
         </div>
         <p class="hint" id="rain-note">日雨量小於 1 毫米。</p>
-        <div id="rain-extra" hidden>
-          <div class="range-row">
-            <span class="hint">雨量</span>
+        <div class="weather-range" id="rain-extra" hidden>
             <div class="dual" id="rain-dual">
               <div class="dual-track"></div><div class="dual-fill"></div>
-              <input id="rain-lo" class="bar-handle" type="range" min="1" max="100" step="1" value="1" aria-label="日雨量下限" aria-describedby="rain-range-note">
-              <input id="rain-hi" class="bar-handle" type="range" min="1" max="100" step="1" value="100" aria-label="日雨量上限" aria-describedby="rain-range-note">
+              <input id="rain-lo" class="bar-handle" type="range" min="0" max="4" step="1" value="0" aria-label="最低降雨級別" aria-describedby="rain-range-note">
+              <input id="rain-hi" class="bar-handle" type="range" min="0" max="4" step="1" value="4" aria-label="最高降雨級別" aria-describedby="rain-range-note">
             </div>
-            <span class="value" id="rain-read">1 毫米以上</span>
-          </div>
-          <p class="hint" id="rain-range-note">100+ 代表不設上限。</p>
+          <div class="rain-levels" aria-hidden="true"><span>微量<br>降雨</span><span>小雨</span><span>中雨</span><span>大雨</span><span>豪雨<br>以上</span></div>
+          <output id="rain-read" for="rain-lo rain-hi">微量降雨～豪雨以上</output>
+          <p class="hint" id="rain-range-note">日雨量 ≥ 1 毫米，不設上限。</p>
+          <p class="hint">依日累積量分級，非即時雨勢或特報。</p>
         </div>
       </fieldset>
       <fieldset class="weather-option">
@@ -417,9 +415,13 @@
           <label><input class="sr-only" type="radio" name="sun-mode" value="any"><span>不限</span></label>
           <label><input class="sr-only" type="radio" name="sun-mode" value="sun" checked><span>出太陽</span></label>
         </div>
-      <div class="extra" id="sun-extra">
-        <label for="sun-min">日照至少 <span class="value" id="sun-read">6 小時</span></label>
-        <input id="sun-min" class="single bar-handle" type="range" min="1" max="12" step="0.5" value="6">
+      <div class="weather-range" id="sun-extra">
+        <div class="dual" id="sun-dual">
+          <div class="dual-track"></div><div class="dual-fill"></div>
+          <input id="sun-min" class="bar-handle" type="range" min="1" max="12" step="0.5" value="6" aria-label="日照時數下限">
+          <input id="sun-max" class="bar-handle" type="range" min="1" max="12" step="0.5" value="12" aria-label="日照時數上限">
+        </div>
+        <output id="sun-read" for="sun-min sun-max">6~12 小時</output>
       </div>
       </fieldset>
       <fieldset class="weather-option">
@@ -428,9 +430,13 @@
           <label><input class="sr-only" type="radio" name="wind-mode" value="any" checked><span>不限</span></label>
           <label><input class="sr-only" type="radio" name="wind-mode" value="wind"><span>風力限制</span></label>
         </div>
-      <div class="extra" id="wind-extra" hidden>
-        <label for="wind-max">日最大風速上限 <span class="value" id="wind-read">30 km/h</span></label>
-        <input id="wind-max" class="single" type="range" min="5" max="70" step="1" value="30">
+      <div class="weather-range" id="wind-extra" hidden>
+        <div class="dual" id="wind-dual">
+          <div class="dual-track"></div><div class="dual-fill"></div>
+          <input id="wind-min" class="bar-handle" type="range" min="5" max="70" step="1" value="5" aria-label="日最大風速下限">
+          <input id="wind-max" class="bar-handle" type="range" min="5" max="70" step="1" value="30" aria-label="日最大風速上限">
+        </div>
+        <output id="wind-read" for="wind-min wind-max">5~30 km/h</output>
       </div>
       </fieldset>
       <div class="data-status" id="weather-status" role="status">
@@ -440,6 +446,7 @@
     </section>
   <main>
     <div class="map-region">
+    <h2 class="map-title">你的舒適地圖</h2>
     <div class="map-frame" id="map-frame">
       <div class="tools">
         <button type="button" id="zoom-in" aria-label="放大" title="放大"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -448,6 +455,7 @@
       </div>
       <svg id="map" role="group" aria-label="台灣鄉鎮每年舒適天數" tabindex="0"></svg>
       <div id="tip" hidden></div>
+      <p class="touch-hint">雙指移動或縮放地圖</p>
     </div>
     <div class="legend">
       <div class="legend-bar" id="legend-bar"></div>
@@ -457,10 +465,14 @@
     </div>
     <section class="panel detail">
       <div class="detail-head">
-        <label class="select-label"><span class="sr-only">選擇鄉鎮市區</span>
-          <select id="town-select"><option value="">選擇鄉鎮市區</option></select>
-        </label>
-        <div class="annual" id="annual" hidden><span>每年舒適天數</span><div class="big" id="place-days"></div></div>
+        <div class="place-choice">
+          <span class="place-lead" id="place-lead" hidden>你住在</span>
+          <label class="select-label"><span class="sr-only">選擇鄉鎮市區</span>
+            <select id="town-select"><option value="">選擇鄉鎮市區</option></select>
+          </label>
+          <span class="place-tail" id="place-tail" hidden>的話，</span>
+        </div>
+        <div class="annual" id="annual" hidden><span>一年會有</span><strong class="big" id="place-days"></strong><span>舒適的天氣。</span></div>
       </div>
       <p class="empty-state" id="town-prompt">點選地圖、表格或上方選單，查看鄉鎮的每月天數與氣候。</p>
       <section class="chart-section" id="matching-section" hidden>
@@ -502,9 +514,7 @@
   </section>
 </div>
 <footer>
-  <p>資料期間：1991–2020 年。每年天數＝這 30 年裡符合的天數 ÷ 30。缺值不計入，也不用 0 填。</p>
-  <p>天氣底圖是 NASA POWER 的 MERRA-2，約 50 公里，1991–2020。鄉鎮代表點的高度來自 Open-Meteo 地形；氣溫依每上升 1 公里減 6.5°C、露點減 1.8°C，從粗網格修正到當地高度。雨量、風速與日照仍是粗網格的值，不隨高度改。降雨篩選與月累積雨量使用原始小數雨量；日照時數是估計：全天空輻射除以晴空輻射，再乘上當天的白晝時數。</p>
-  <p>界線：內政部國土測繪中心鄉鎮市區界 TOWN_MOI_1140318，政府資料開放授權條款第 1 版，經 pdmaptw 簡化。東沙、太平島與釣魚臺距離太遠，沒有畫進這張圖；旗津、頭城的天氣用本島那一塊。這不是中央氣象署測站實測，也不是預報。</p>
+  <p>資料期間：1991–2020 年。每年天數＝這 30 年裡符合的天數 ÷ 30。</p>
 </footer>
 <script>
 const STOPS = [
@@ -519,6 +529,13 @@ const STOPS = [
   [365, [214, 70, 47]]
 ];
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const RAIN_LEVELS = [
+  {name: '微量降雨', min: 1, max: 10},
+  {name: '小雨', min: 10, max: 25},
+  {name: '中雨', min: 25, max: 80},
+  {name: '大雨', min: 80, max: 200},
+  {name: '豪雨以上', min: 200, max: Infinity},
+];
 const REGION_COUNTIES = {
   北部: ['臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'],
   中部: ['苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣'],
@@ -539,8 +556,6 @@ function rankTowns(rows, regions, key, direction) {
 
 const $ = (id) => document.getElementById(id);
 const banner = $('banner');
-const tmaxLo = $('tmax-lo');
-const tmaxHi = $('tmax-hi');
 
 function colorFor(days) {
   const x = Math.max(0, Math.min(365, days));
@@ -556,11 +571,14 @@ function colorFor(days) {
 function paintDual(lo, hi, root) {
   const min = Number(lo.min);
   const max = Number(lo.max);
-  const a = (Number(lo.value) - min) / (max - min);
-  const b = (Number(hi.value) - min) / (max - min);
+  const unit = Math.max(1, Math.abs(min), Math.abs(max));
+  const position = (value) => (Number(value) / unit - min / unit) / (max / unit - min / unit);
+  const a = position(lo.value);
+  const b = position(hi.value);
   const fill = root.querySelector('.dual-fill');
   fill.style.left = `calc(11px + (100% - 22px) * ${a})`;
   fill.style.width = `calc((100% - 22px) * ${b - a})`;
+  root.classList.toggle('can-shift', b > a && (a > 0 || b < 1));
 }
 
 function paintTemperature() {
@@ -569,6 +587,131 @@ function paintTemperature() {
   lo.setAttribute('aria-valuetext', `${lo.value}°C`);
   hi.setAttribute('aria-valuetext', `${hi.value}°C`);
   paintDual(lo, hi, root);
+}
+
+function createTemperatureState() {
+  return {mode: 'basic', basic: {lo: 20, hi: 28}, advanced: {lo: 20, hi: 28}, min: 15, max: 35};
+}
+
+function switchTemperatureMode(state, mode) {
+  if (state.mode === mode) return;
+  if (mode === 'advanced') {
+    state.min = Math.min(-5, state.advanced.lo);
+    state.max = Math.max(40, state.advanced.hi);
+  } else {
+    state.min = 15;
+    state.max = 35;
+  }
+  state.mode = mode;
+}
+
+function commitTemperature(state, loText, hiText) {
+  const lo = Number(loText), hi = Number(hiText);
+  const errors = {
+    lo: loText.trim() === '' || !Number.isFinite(lo) ? '請輸入有效數字。' : '',
+    hi: hiText.trim() === '' || !Number.isFinite(hi) ? '請輸入有效數字。' : '',
+  };
+  if (!errors.lo && !errors.hi && lo > hi) {
+    errors.lo = '下限不可大於上限。';
+    errors.hi = '上限不可小於下限。';
+  }
+  if (!errors.lo && !errors.hi) {
+    state.advanced = {lo, hi};
+    state.min = Math.min(state.min, lo);
+    state.max = Math.max(state.max, hi);
+  }
+  return errors;
+}
+
+function bindTemperatureControls(onUpdate) {
+  const state = createTemperatureState();
+  const lo = $('tmax-lo'), hi = $('tmax-hi');
+  const numbers = {lo: $('temperature-lo-number'), hi: $('temperature-hi-number')};
+  const showErrors = (errors = {lo: '', hi: ''}) => {
+    for (const key of ['lo', 'hi']) {
+      numbers[key].setAttribute('aria-invalid', String(Boolean(errors[key])));
+      $(`temperature-${key}-error`).textContent = errors[key];
+    }
+  };
+  const sync = () => {
+    const advanced = state.mode === 'advanced';
+    const range = state[state.mode];
+    for (const [key, input] of [['lo', lo], ['hi', hi]]) {
+      input.min = String(state.min);
+      input.max = String(state.max);
+      // 進階保留輸入框的小數；拖曳與鍵盤步進另以 0.5℃ 處理。
+      input.step = advanced ? 'any' : '0.5';
+      input.value = String(range[key]);
+      numbers[key].disabled = !advanced;
+      numbers[key].value = String(range[key]);
+    }
+    $('temperature-numbers').hidden = !advanced;
+    paintTemperature();
+    showErrors();
+  };
+  const applySlider = (input, value) => {
+    const range = state[state.mode];
+    if (input === lo) range.lo = Math.max(state.min, Math.min(range.hi, value));
+    else range.hi = Math.min(state.max, Math.max(range.lo, value));
+    input.style.zIndex = '2';
+    (input === lo ? hi : lo).style.zIndex = '1';
+    sync();
+  };
+  for (const input of [lo, hi]) {
+    input.addEventListener('input', () => {
+      const value = Number(input.value);
+      applySlider(input, state.mode === 'advanced' ? Math.round(value * 2) / 2 : value);
+      onUpdate(false);
+    });
+    input.addEventListener('change', () => onUpdate(true));
+    input.addEventListener('keydown', (event) => {
+      if (state.mode !== 'advanced' || event.shiftKey) return;
+      const value = state[state.mode][input === lo ? 'lo' : 'hi'];
+      const next = {ArrowLeft: value - 0.5, ArrowDown: value - 0.5, ArrowRight: value + 0.5, ArrowUp: value + 0.5, PageDown: value - 5, PageUp: value + 5, Home: state.min, End: state.max}[event.key];
+      if (next === undefined) return;
+      event.preventDefault();
+      applySlider(input, next);
+      onUpdate(true);
+    });
+  }
+  const pointer = bindDualPointer(lo, hi, $('tmax-dual'), {
+    step: 0.5,
+    onRange: (lower, upper, confirm) => {
+      state[state.mode] = {lo: lower, hi: upper};
+      sync();
+      onUpdate(confirm);
+    },
+  });
+  const commit = () => {
+    if (state.mode !== 'advanced') return;
+    const errors = commitTemperature(state, numbers.lo.value, numbers.hi.value);
+    showErrors(errors);
+    if (errors.lo || errors.hi) return;
+    sync();
+    onUpdate(true);
+  };
+  for (const input of Object.values(numbers)) {
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); commit(); }
+    });
+  }
+  for (const radio of document.querySelectorAll('input[name="temperature-mode"]')) radio.addEventListener('change', () => {
+    pointer.cancel();
+    switchTemperatureMode(state, radio.value);
+    sync();
+    onUpdate(true);
+  });
+  sync();
+  return state;
+}
+
+function rainDescription(lo, hi) {
+  const lower = RAIN_LEVELS[lo], upper = RAIN_LEVELS[hi];
+  const exact = Number.isFinite(upper.max)
+    ? `${lower.min} 毫米 ≤ 日雨量 < ${upper.max} 毫米`
+    : `日雨量 ≥ ${lower.min} 毫米，不設上限`;
+  return {name: lo === hi ? lower.name : `${lower.name}～${upper.name}`, exact};
 }
 
 function centeredTranslation(box, view, scale) {
@@ -605,15 +748,15 @@ function rainMatches(rain, mode, lo, hi) {
   if (mode === 'any') return true;
   if (!Number.isFinite(rain) || rain < 0) return false;
   if (mode === 'dry') return rain < 1;
-  return rain >= 1 && rain >= lo && (hi === 100 || rain <= hi);
+  return rain >= RAIN_LEVELS[lo].min && rain < RAIN_LEVELS[hi].max;
 }
 
 function matchesDay(high, low, rain, sun, wind, controls) {
   if (!Number.isFinite(high) || !Number.isFinite(low)) return false;
   if (high < controls.tempLo || high > controls.tempHi || low < controls.tempLo || low > controls.tempHi) return false;
   if (!rainMatches(rain, controls.rainMode, controls.rainLo, controls.rainHi)) return false;
-  if (controls.useSun && (!Number.isFinite(sun) || sun < controls.sunMin)) return false;
-  if (controls.useWind && (!Number.isFinite(wind) || wind > controls.windMax)) return false;
+  if (controls.useSun && (!Number.isFinite(sun) || sun < controls.sunMin || sun > controls.sunMax)) return false;
+  if (controls.useWind && (!Number.isFinite(wind) || wind < controls.windMin || wind > controls.windMax)) return false;
   return true;
 }
 
@@ -621,6 +764,163 @@ function clampRange(lo, hi, changed) {
   if (Number(lo.value) <= Number(hi.value)) return;
   if (changed === hi) hi.value = lo.value;
   else lo.value = hi.value;
+}
+
+function addRangeDelta(value, delta) {
+  const places = (number) => {
+    const [digits, exponent = '0'] = String(number).split('e');
+    return Math.max(0, (digits.split('.')[1] || '').length - Number(exponent));
+  };
+  const factor = 10 ** Math.max(places(value), places(delta));
+  const a = Math.round(value * factor), b = Math.round(delta * factor);
+  // 可安全縮放的小數先以整數相加，避免邊界平移產生浮點尾數。
+  return Number.isSafeInteger(a) && Number.isSafeInteger(b) && Number.isSafeInteger(a + b)
+    ? (a + b) / factor : value + delta;
+}
+
+function shiftRange(lo, hi, min, max, delta, step) {
+  const left = addRangeDelta(min, -lo), right = addRangeDelta(max, -hi);
+  const rounded = Math.round(delta / step) * step;
+  const shift = Math.max(left, Math.min(right, rounded));
+  if (shift === 0) return {lo, hi};
+  // 極大有限值之間的差可能溢位；以正規化寬度處理到邊界的位移。
+  const unit = Math.max(1, Math.abs(min), Math.abs(max));
+  const width = hi / unit - lo / unit;
+  if (shift === left) return {lo: min, hi: Number.isFinite(shift) ? addRangeDelta(hi, shift) : (min / unit + width) * unit};
+  if (shift === right) return {lo: Number.isFinite(shift) ? addRangeDelta(lo, shift) : (max / unit - width) * unit, hi: max};
+  return {lo: addRangeDelta(lo, shift), hi: addRangeDelta(hi, shift)};
+}
+
+function bindDualPointer(lo, hi, root, {step = Number(lo.step) || 0.5, onRange} = {}) {
+  let drag = null;
+  const applyRange = (next, confirm) => {
+    if (next.lo === Number(lo.value) && next.hi === Number(hi.value)) return false;
+    onRange(next.lo, next.hi, confirm);
+    return true;
+  };
+  const finish = (event, confirm = true) => {
+    if (!drag || (event && event.pointerId !== drag.id)) return;
+    const {input, id, changed, kind} = drag;
+    drag = null;
+    root.classList.remove('is-shifting');
+    if (root.hasPointerCapture(id)) root.releasePointerCapture(id);
+    if (!confirm || !changed) return;
+    if (kind === 'range') onRange(Number(lo.value), Number(hi.value), true);
+    else input.dispatchEvent(new Event('change', {bubbles: true}));
+  };
+  for (const input of [lo, hi]) {
+    input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby'), 'range-help'].filter(Boolean).join(' '));
+    input.setAttribute('aria-keyshortcuts', 'Shift+ArrowLeft Shift+ArrowRight Shift+ArrowDown Shift+ArrowUp Shift+Home Shift+End');
+    input.addEventListener('keydown', (event) => {
+      if (!onRange || !event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || lo.disabled || hi.disabled) return;
+      const delta = {ArrowLeft: -step, ArrowDown: -step, ArrowRight: step, ArrowUp: step, Home: -Infinity, End: Infinity}[event.key];
+      if (delta === undefined) return;
+      event.preventDefault();
+      finish(null, false);
+      applyRange(shiftRange(Number(lo.value), Number(hi.value), Number(lo.min), Number(lo.max), delta, step), true);
+    });
+  }
+  root.addEventListener('pointerdown', (event) => {
+    if (drag || event.button !== 0 || event.isPrimary === false || lo.disabled || hi.disabled) return;
+    const rect = root.getBoundingClientRect();
+    const width = rect.width - 22;
+    if (width <= 0) return;
+    const min = Number(lo.min), max = Number(lo.max);
+    const unit = Math.max(1, Math.abs(min), Math.abs(max));
+    const fraction = (value) => (Number(value) / unit - min / unit) / (max / unit - min / unit);
+    const a = fraction(lo.value), b = fraction(hi.value);
+    const left = rect.left + 11 + a * width, right = rect.left + 11 + b * width;
+    const overlap = right - left <= 22 && event.clientX >= left - 11 && event.clientX <= right + 11;
+    const range = onRange && event.clientX > left + 11 && event.clientX < right - 11 && (a > 0 || b < 1);
+    if (!overlap && !range) return;
+    // 重疊區由移動方向決定端點；區間中央另行處理整段平移。
+    if (overlap) event.preventDefault();
+    event.stopPropagation();
+    drag = {id: event.pointerId, x: event.clientX, y: event.clientY, width, min, max, unit, a, b, left, right,
+      lower: Number(lo.value), upper: Number(hi.value), kind: overlap ? 'endpoint' : 'range', input: null, changed: false, active: false};
+    root.setPointerCapture(event.pointerId);
+    if (overlap) (Number(hi.value) === max ? lo : hi).focus({preventScroll: true});
+  }, true);
+  root.addEventListener('pointermove', (event) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    if (lo.disabled || hi.disabled) { finish(null, false); return; }
+    const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+    if (drag.kind === 'range') {
+      if (!drag.active) {
+        if (Math.abs(dy) >= 4 && Math.abs(dy) >= Math.abs(dx)) { finish(null, false); return; }
+        if (Math.abs(dx) < 4 || Math.abs(dx) <= Math.abs(dy)) return;
+        drag.active = true;
+        root.classList.add('is-shifting');
+        lo.focus({preventScroll: true});
+      }
+      event.preventDefault();
+      const delta = (drag.max / drag.unit - drag.min / drag.unit) * (dx / drag.width) * drag.unit;
+      const next = shiftRange(drag.lower, drag.upper, drag.min, drag.max, delta, step);
+      if (applyRange(next, false)) drag.changed = true;
+      return;
+    }
+    if (!drag.input) {
+      if (Math.abs(dx) < 2 || Math.abs(dx) < Math.abs(dy)) return;
+      drag.input = drag.a === drag.b
+        ? (dx < 0 ? lo : hi)
+        : (Math.abs(drag.x - drag.left) === Math.abs(drag.x - drag.right)
+          ? (dx < 0 ? lo : hi) : (Math.abs(drag.x - drag.left) < Math.abs(drag.x - drag.right) ? lo : hi));
+      drag.input.focus({preventScroll: true});
+    }
+    event.preventDefault();
+    const start = drag.input === lo ? drag.a : drag.b;
+    const fraction = Math.max(0, Math.min(1, start + dx / drag.width));
+    let value = (drag.min / drag.unit + (drag.max / drag.unit - drag.min / drag.unit) * fraction) * drag.unit;
+    const endpointStep = Number(drag.input.step);
+    if (endpointStep > 0) value = drag.min + Math.round((value - drag.min) / endpointStep) * endpointStep;
+    const next = drag.input === lo ? Math.max(drag.min, Math.min(Number(hi.value), value)) : Math.min(drag.max, Math.max(Number(lo.value), value));
+    if (next !== Number(drag.input.value)) {
+      drag.input.value = String(next);
+      drag.input.dispatchEvent(new Event('input', {bubbles: true}));
+      drag.changed = true;
+    }
+  });
+  root.addEventListener('pointerup', finish);
+  root.addEventListener('pointercancel', finish);
+  root.addEventListener('lostpointercapture', finish);
+  return {cancel: () => finish(null, false)};
+}
+
+function bindTouchMap(svg, {point, readView, move, cancel, choose}) {
+  let gesture = null;
+  let tap = null;
+  const frame = (touches) => {
+    const [a, b] = touches;
+    return {center: point((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2), distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)};
+  };
+  const begin = (event) => {
+    gesture = null;
+    if (event.touches.length !== 2) return;
+    event.preventDefault();
+    cancel();
+    tap = null;
+    gesture = {...frame(event.touches), ...readView()};
+  };
+  svg.addEventListener('touchstart', (event) => {
+    tap = event.touches.length === 1 ? {x: event.touches[0].clientX, y: event.touches[0].clientY, code: event.target.closest?.('.town')?.dataset.code} : null;
+    begin(event);
+  }, {passive: false});
+  svg.addEventListener('touchmove', (event) => {
+    if (tap && Math.hypot(event.touches[0].clientX - tap.x, event.touches[0].clientY - tap.y) > 4) tap = null;
+    if (event.touches.length !== 2) { gesture = null; return; }
+    event.preventDefault();
+    if (!gesture) { begin(event); return; }
+    const current = frame(event.touches);
+    const scale = Math.min(14, Math.max(1, gesture.scale * current.distance / Math.max(1, gesture.distance)));
+    const ratio = scale / gesture.scale;
+    move({scale, x: current.center.x - (gesture.center.x - gesture.x) * ratio, y: current.center.y - (gesture.center.y - gesture.y) * ratio});
+  }, {passive: false});
+  svg.addEventListener('touchend', (event) => {
+    if (tap?.code && event.touches.length === 0) choose(tap.code);
+    tap = null;
+    begin(event);
+  }, {passive: false});
+  svg.addEventListener('touchcancel', () => { gesture = null; tap = null; });
 }
 
 function validateWeather(data, meta) {
@@ -865,6 +1165,7 @@ function boot(meta, geo, buffer) {
   let sortDirection = 'descending';
   const regionInputs = [...document.querySelectorAll('input[name="region"]')];
   const rankingItems = new Map();
+  const temperature = bindTemperatureControls((announce) => announce ? render(true, true) : schedule(false));
 
   function readNumber(input) {
     return Number(input.value);
@@ -876,14 +1177,16 @@ function boot(meta, geo, buffer) {
 
   function readControls() {
     return {
-      tempLo: readNumber(tmaxLo),
-      tempHi: readNumber(tmaxHi),
+      tempLo: temperature[temperature.mode].lo,
+      tempHi: temperature[temperature.mode].hi,
       rainMode: document.querySelector('input[name="rain-mode"]:checked').value,
       rainLo: readNumber($('rain-lo')),
       rainHi: readNumber($('rain-hi')),
       useSun: document.querySelector('input[name="sun-mode"]:checked').value === 'sun',
       sunMin: readNumber($('sun-min')),
+      sunMax: readNumber($('sun-max')),
       useWind: document.querySelector('input[name="wind-mode"]:checked').value === 'wind',
+      windMin: readNumber($('wind-min')),
       windMax: readNumber($('wind-max'))
     };
   }
@@ -917,13 +1220,22 @@ function boot(meta, geo, buffer) {
 
   function paintReads() {
     paintTemperature();
-    $('sun-read').textContent = `${readNumber($('sun-min'))} 小時`;
-    $('wind-read').textContent = `${readNumber($('wind-max'))} km/h`;
+    for (const [key, unit] of [['sun', '小時'], ['wind', 'km/h']]) {
+      const lo = $(`${key}-min`), hi = $(`${key}-max`);
+      $(`${key}-read`).textContent = `${lo.value}~${hi.value} ${unit}`;
+      lo.setAttribute('aria-valuetext', `${lo.value} ${unit}`);
+      hi.setAttribute('aria-valuetext', `${hi.value} ${unit}`);
+      paintDual(lo, hi, $(`${key}-dual`));
+    }
     const rainLo = readNumber($('rain-lo'));
     const rainHi = readNumber($('rain-hi'));
-    $('rain-read').textContent = rainHi === 100 ? `${rainLo} 毫米以上` : `${rainLo}–${rainHi} 毫米`;
-    $('rain-hi').setAttribute('aria-valuetext', rainHi === 100 ? '100+ 毫米，不設上限' : `${rainHi} 毫米`);
-    $('rain-lo').setAttribute('aria-valuetext', `${rainLo} 毫米`);
+    const description = rainDescription(rainLo, rainHi);
+    $('rain-read').textContent = description.name;
+    $('rain-range-note').textContent = `${description.exact}。`;
+    for (const [id, level] of [['rain-lo', rainLo], ['rain-hi', rainHi]]) {
+      const single = rainDescription(level, level);
+      $(id).setAttribute('aria-valuetext', `${single.name}，${single.exact}`);
+    }
     const rainMode = readControls().rainMode;
     $('rain-note').hidden = rainMode === 'wet';
     $('rain-note').textContent = rainMode === 'dry' ? '日雨量小於 1 毫米。' : '不限制降雨。';
@@ -979,7 +1291,7 @@ function boot(meta, geo, buffer) {
   }
 
   for (const input of regionInputs) input.addEventListener('change', () => {
-    renderRanking();
+    render(true, true);
     document.querySelector('.ranking-scroll').scrollTop = 0;
   });
   for (const button of document.querySelectorAll('[data-sort]')) button.addEventListener('click', () => {
@@ -1013,6 +1325,8 @@ function boot(meta, geo, buffer) {
   function showTown() {
     const town = townByCode.get(selected);
     $('town-prompt').hidden = Boolean(town);
+    $('place-lead').hidden = !town;
+    $('place-tail').hidden = !town;
     $('annual').hidden = !town;
     $('matching-section').hidden = !town;
     $('climate-section').hidden = !town;
@@ -1045,7 +1359,8 @@ function boot(meta, geo, buffer) {
     $('climate-table').innerHTML = climate.monthly.map((month, index) => `<tr><th scope="row">${index + 1}月</th><td>${number(month.tmax)}</td><td>${number(month.tmin)}</td><td>${number(month.precip)}</td><td>${month.validYears.tmax}／${month.validYears.tmin}／${month.validYears.precip}</td></tr>`).join('');
   }
 
-  function render(announce) {
+  function render(announce, selectBest = false) {
+    window.clearTimeout(timer);
     paintReads();
     if (!weather && readControls().rainMode !== 'any') return;
     compute();
@@ -1057,24 +1372,31 @@ function boot(meta, geo, buffer) {
     const ranked = meta.towns
       .map((town) => ({...town, days: scores[town.cell]}));
     ranked.sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, 'zh-Hant'));
-    const values = ranked.map((town) => town.days).sort((a, b) => a - b);
-    const mid = values.length === 0 ? null : values.length % 2
-      ? values[(values.length - 1) / 2]
-      : (values[values.length / 2 - 1] + values[values.length / 2]) / 2;
     rankingRows = ranked;
+    const regions = new Set(regionInputs.filter((input) => input.checked).map((input) => input.value));
+    const eligible = rankTowns(ranked, regions, 'days', 'descending');
+    if (selectBest) {
+      const best = eligible[0]?.code || '';
+      if (selected !== best) cancelCamera();
+      selected = best;
+    }
     renderRanking();
     for (const path of paths.values()) path.classList.toggle('is-selected', path.dataset.code === selected);
     showTown();
     if (announce) {
+      const values = eligible.map((town) => town.days);
+      const mid = values.length === 0 ? null : values.length % 2
+        ? values[(values.length - 1) / 2]
+        : (values[values.length / 2 - 1] + values[values.length / 2]) / 2;
       $('live').textContent = mid === null
-        ? '沒有可顯示的鄉鎮資料。'
-        : `中位數每年 ${mid.toFixed(1)} 天，最多是${ranked[0].name} ${ranked[0].days.toFixed(1)} 天。`;
+        ? '目前勾選分區沒有可顯示的鄉鎮。'
+        : `中位數每年 ${mid.toFixed(1)} 天，最多是${eligible[0].name} ${eligible[0].days.toFixed(1)} 天。`;
     }
   }
 
   function schedule(announce) {
     window.clearTimeout(timer);
-    timer = window.setTimeout(() => render(announce), 40);
+    timer = window.setTimeout(() => render(announce, true), 40);
   }
 
   function choose(code) {
@@ -1085,21 +1407,33 @@ function boot(meta, geo, buffer) {
     if (path) centerTown(path);
   }
 
+  const pairControllers = [];
   function bindPair(lo, hi) {
     const onInput = (event) => {
       clampRange(lo, hi, event.target);
-      if (lo === tmaxLo) paintTemperature();
       event.target.style.zIndex = '2';
       (event.target === lo ? hi : lo).style.zIndex = '1';
+      paintReads();
       schedule(false);
     };
     lo.addEventListener('input', onInput);
     hi.addEventListener('input', onInput);
-    lo.addEventListener('change', () => render(true));
-    hi.addEventListener('change', () => render(true));
+    lo.addEventListener('change', () => render(true, true));
+    hi.addEventListener('change', () => render(true, true));
+    const controller = bindDualPointer(lo, hi, lo.parentElement, {
+      onRange: (lower, upper, confirm) => {
+        lo.value = String(lower);
+        hi.value = String(upper);
+        paintReads();
+        if (confirm) render(true, true);
+        else schedule(false);
+      },
+    });
+    pairControllers.push({lo, controller});
   }
-  bindPair(tmaxLo, tmaxHi);
   bindPair($('rain-lo'), $('rain-hi'));
+  bindPair($('sun-min'), $('sun-max'));
+  bindPair($('wind-min'), $('wind-max'));
 
   function syncModes() {
     const controls = readControls();
@@ -1107,12 +1441,9 @@ function boot(meta, geo, buffer) {
       $(id).hidden = !active;
       for (const input of $(id).querySelectorAll('input')) input.disabled = !active;
     }
+    for (const {lo, controller} of pairControllers) if (lo.disabled) controller.cancel();
   }
-  for (const radio of document.querySelectorAll('.segments input')) radio.addEventListener('change', () => { syncModes(); render(true); });
-  for (const input of [$('sun-min'), $('wind-max')]) {
-    input.addEventListener('input', () => schedule(false));
-    input.addEventListener('change', () => render(true));
-  }
+  for (const radio of document.querySelectorAll('.segments input:not([name="temperature-mode"])')) radio.addEventListener('change', () => { syncModes(); render(true, true); });
   select.addEventListener('change', () => {
     choose(select.value);
   });
@@ -1141,14 +1472,22 @@ function boot(meta, geo, buffer) {
       for (const input of document.querySelectorAll('input[name="rain-mode"]')) input.disabled = input.value !== 'any' && !weather;
       lastClimateTown = null;
       syncModes();
-      render(true);
+      render(true, true);
     }
   }
   $('weather-retry').addEventListener('click', refreshWeather);
 
   const tip = $('tip');
   let drag = null;
+  bindTouchMap(svg, {
+    point: mapPoint,
+    readView: () => ({x: tx, y: ty, scale}),
+    move: (next) => { tx = next.x; ty = next.y; scale = next.scale; applyView(); },
+    cancel: () => { cancelCamera(); drag = null; tip.hidden = true; },
+    choose,
+  });
   svg.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'touch') return;
     if (event.button !== 0) return;
     cancelCamera();
     svg.setPointerCapture(event.pointerId);
@@ -1163,6 +1502,7 @@ function boot(meta, geo, buffer) {
     };
   });
   svg.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch') return;
     if (drag) {
       const dx = event.clientX - drag.x;
       const dy = event.clientY - drag.y;
