@@ -679,7 +679,7 @@ function recommendationHarness() {
       classList: {toggle(name, active) { highlights.set(town.code, active); }}}])),
     rankTowns: scope.rankTowns, colorFor: scope.colorFor, paintReads() {}, compute() {},
     readControls: () => ({rainMode: 'any'}), $: () => live,
-    renderRanking() {}, showTown() { shown.push(state.selected); },
+    renderRanking() {}, syncAddress() {}, showTown() { shown.push(state.selected); },
     cancelCamera() { cancellations++; }, centerTown(path) { centered.push(path.dataset.code); },
     window: {clearTimeout(id) { timers.delete(id); }, setTimeout(callback) { timers.set(++timerId, callback); return timerId; }}
   });

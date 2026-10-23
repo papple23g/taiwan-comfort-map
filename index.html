@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>台灣舒適度地圖</title>
+<meta name="description" content="自訂氣溫、降雨、估計日照與風速條件，比較台灣各鄉鎮在 1991–2020 年間平均每年符合條件的天數。">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:title" content="台灣舒適度地圖">
+<meta property="og:description" content="用你的舒適條件，探索台灣各鄉鎮的歷年平均舒適天數。資料期間為 1991–2020 年。">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="台灣舒適度地圖">
+<meta name="twitter:description" content="用你的舒適條件，探索台灣各鄉鎮的歷年平均舒適天數。資料期間為 1991–2020 年。">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
   /* 使用系統字型，讓離線資料頁不依賴字型服務。 */
   :root {
@@ -164,6 +173,26 @@
     box-shadow: 0 2px 6px rgb(15 23 42 / 3%);
   }
   .conditions h2 { margin-bottom: 20px; color: var(--ink); font-size: 1.125rem; font-weight: 700; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+  .condition-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .condition-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1; min-height: 44px; padding: 6px; border: 1px solid #C3D0E3; border-radius: 6px; background: white; color: var(--primary); font-size: 0.8rem; }
+  .conditions .condition-actions .icon { flex: none; width: 16px; height: 16px; }
+  .share-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); margin: auto; padding: 20px; overflow-y: auto; border: 1px solid #DCE3ED; border-radius: 12px; color: var(--ink); background: #fff; box-shadow: 0 16px 64px rgb(15 23 42 / 18%); }
+  .share-dialog::backdrop { background: rgb(15 23 42 / 45%); }
+  .share-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .share-dialog h2 { margin: 0; font-size: 1.125rem; }
+  .share-dialog p { margin-top: 12px; color: #526077; font-size: 0.875rem; line-height: 1.7; }
+  .share-options, .share-image-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .share-dialog button, .share-image-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 12px; border: 1px solid #C3D0E3; border-radius: 6px; color: var(--primary); background: #fff; font: inherit; font-size: 0.875rem; text-decoration: none; }
+  .share-options button { flex: 1; }
+  .share-options button[aria-pressed="true"] { border-color: var(--primary); background: #EFF4FC; }
+  .share-preview { display: block; width: 100%; max-width: 380px; height: auto; margin: 16px auto 0; border: 1px solid #DCE3ED; border-radius: 8px; }
+  #share-url { width: 100%; min-width: 0; margin-top: 6px; padding: 8px; font-size: 0.8rem; }
+  #share-notice { margin: 8px 0 0; }
+  .loading-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
+  #main-status { margin: 8px 16px 0; }
+  #main-retry { min-height: 44px; margin-top: 6px; }
+  .shell[aria-busy="true"] #map { pointer-events: none; }
   .conditions .icon { width: 18px; height: 18px; }
   .conditions .hint { color: #526077; font-size: 0.75rem; line-height: 1.7; margin-top: 4px; }
   .conditions .value {
@@ -247,9 +276,9 @@
   .detail { border-radius: 10px; padding: 18px; min-width: 0; container-type: inline-size; }
   .detail-head { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
   .place-choice { display: flex; align-items: center; gap: 8px; flex: 0 1 430px; min-width: 0; width: 100%; }
-  .place-lead, .place-tail { white-space: nowrap; }
+  .place-lead { white-space: nowrap; }
   .detail-head .select-label { min-width: 0; flex: 1; max-width: 300px; }
-  .annual { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: #526077; }
+  .annual { display: flex; flex-basis: 100%; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: #526077; }
   .annual > span { white-space: nowrap; }
   .big { color: var(--ink); font-size: clamp(2rem, 8cqw, 3.6rem); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; line-height: 1.25; }
   .empty-state { padding: 24px 0 8px; color: #526077; font-size: 0.875rem; }
@@ -323,6 +352,10 @@
     font-size: 0.8rem;
   }
   footer p + p { margin-top: 6px; }
+  footer a { color: var(--primary); text-underline-offset: 2px; }
+  footer details { margin-top: 12px; max-width: 1000px; }
+  footer summary { cursor: pointer; min-height: 32px; display: list-item; width: fit-content; }
+  footer details p { margin-top: 8px; line-height: 1.7; }
   .sr-only {
     position: absolute;
     width: 1px;
@@ -359,12 +392,14 @@
     <h1>台灣舒適度地圖</h1>
   </div>
 </header>
-<p id="banner" role="status">正在讀取 30 年的每日天氣…</p>
+<noscript><p class="data-status">此地圖需要啟用 JavaScript 才能載入資料與計算條件；資料來源與方法可在頁尾閱讀。</p></noscript>
+<div id="main-status"><p id="banner" role="status">正在下載地圖與 30 年氣候資料…</p><button type="button" id="main-retry" hidden>重試載入主資料</button></div>
 <p id="live" class="sr-only" aria-live="polite"></p>
 <p id="range-help" class="sr-only">拖曳把手調整上下限，拖曳選取段可保持區間寬度一起移動。聚焦任一把手後，Shift 加方向鍵移動整段，Shift 加 Home 或 End 移至邊界；一般方向鍵只調整該端點。</p>
-<div class="shell">
+<div class="shell" id="app" aria-busy="true">
     <section class="panel conditions">
       <h2>你的舒適條件</h2>
+      <fieldset class="loading-controls" id="condition-controls" disabled><legend class="sr-only">舒適條件設定</legend>
       <fieldset class="weather-option" id="temperature-condition">
         <legend>氣溫</legend>
         <div class="segments">
@@ -408,7 +443,7 @@
         </div>
       </fieldset>
       <fieldset class="weather-option">
-        <legend><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>日照</legend>
+        <legend><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M18 6l-1.6 1.6M7.6 16.4 6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>估計日照</legend>
         <div class="segments">
           <label><input class="sr-only" type="radio" name="sun-mode" value="any"><span>不限</span></label>
           <label><input class="sr-only" type="radio" name="sun-mode" value="sun" checked><span>出太陽</span></label>
@@ -416,8 +451,8 @@
       <div class="weather-range" id="sun-extra">
         <div class="dual" id="sun-dual">
           <div class="dual-track"></div><div class="dual-fill"></div>
-          <input id="sun-min" class="bar-handle" type="range" min="1" max="12" step="0.5" value="6" aria-label="日照時數下限">
-          <input id="sun-max" class="bar-handle" type="range" min="1" max="12" step="0.5" value="12" aria-label="日照時數上限">
+          <input id="sun-min" class="bar-handle" type="range" min="1" max="12" step="0.5" value="6" aria-label="估計日照時數下限">
+          <input id="sun-max" class="bar-handle" type="range" min="1" max="12" step="0.5" value="12" aria-label="估計日照時數上限">
         </div>
         <output id="sun-read" for="sun-min sun-max">6~12 小時</output>
       </div>
@@ -437,8 +472,14 @@
         <output id="wind-read" for="wind-min wind-max">5~30 km/h</output>
       </div>
       </fieldset>
+      <div class="condition-actions">
+        <button type="button" id="share-conditions"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 16V3m-4 4 4-4 4 4M5 12v8h14v-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>分享我的條件</span></button>
+        <button type="button" id="reset-conditions"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>恢復預設</span></button>
+      </div>
+      </fieldset>
+      <p class="hint" id="share-notice" role="status"></p>
       <div class="data-status" id="weather-status" role="status">
-        <p id="weather-message">正在讀取精確雨量與月氣候資料…</p>
+        <p id="weather-message">等待載入雨量與月氣候資料…</p>
         <button type="button" id="weather-retry" hidden>重試載入</button>
       </div>
     </section>
@@ -464,13 +505,12 @@
     <section class="panel detail">
       <div class="detail-head">
         <div class="place-choice">
-          <span class="place-lead" id="place-lead" hidden>你住在</span>
+          <span class="place-lead" id="place-lead" hidden>住在</span>
           <label class="select-label"><span class="sr-only">選擇鄉鎮市區</span>
             <select id="town-select"><option value="">選擇鄉鎮市區</option></select>
           </label>
-          <span class="place-tail" id="place-tail" hidden>的話，</span>
         </div>
-        <div class="annual" id="annual" hidden><span>一年會有</span><strong class="big" id="place-days"></strong><span>舒適的天氣。</span></div>
+        <div class="annual" id="annual" hidden><span>每年約</span><strong class="big" id="place-days"></strong><span>令你感到舒適</span></div>
       </div>
       <p class="empty-state" id="town-prompt">點選地圖、表格或上方選單，查看鄉鎮的每月天數與氣候。</p>
       <section class="chart-section" id="matching-section" hidden>
@@ -512,8 +552,34 @@
   </section>
 </div>
 <footer>
-  <p>資料期間：1991–2020 年。每年天數＝這 30 年裡符合的天數 ÷ 30。</p>
+  <p>氣候資料：<a href="https://power.larc.nasa.gov/docs/methodology/data/sources/">NASA POWER</a>（1991–2020）；地形：<a href="https://open-meteo.com/en/docs/elevation-api">Open-Meteo</a>／<a href="https://doi.org/10.5270/ESA-c5d3d65">Copernicus DEM</a>；鄉鎮界：<a href="https://data.gov.tw/dataset/7441">內政部資料</a>（<a href="https://github.com/plotdb/pdmaptw#license">pdmaptw 整理</a>）。</p>
+  <p>舒適天數為符合自訂條件的歷年平均；各地以代表點估算，並非即時觀測或天氣預報。</p>
+  <details><summary>資料來源與計算方法</summary>
+    <p>氣象資料採 NASA POWER 粗網格：氣溫、雨量與風速約為緯度 0.5° × 經度 0.625°，日射約為 1°，無法呈現鄉鎮內的局部差異。各鄉鎮以一個代表點估算；氣溫依網格與代表點的高度差，以每升高 1 公里降低 6.5℃ 修正。雨量、風速與日射沿用所屬網格。估計日照以白晝長度乘上全天空／晴空日射比值（限制在 0–1），並非測站實測日照時數。詳見 <a href="https://power.larc.nasa.gov/docs/methodology/data/sources/">NASA POWER 資料說明</a>與 <a href="https://open-meteo.com/en/docs/elevation-api">地形資料說明</a>。</p>
+    <p>每天最低溫與最高溫都須落在設定範圍內；降雨使用日累積量，「無雨」為小於 1 毫米，「有雨」依畫面標示的級別範圍判斷；風速使用離地 10 公尺的日最大風速。所有啟用的條件必須同時符合，上下限均包含端點，降雨級別的上限除外。氣溫資料以 0.5℃ 儲存，進階小數輸入不代表資料具有相同精度。</p>
+    <p>每年平均符合天數＝1991–2020 年符合天數 ÷ 30；每月舒適天數＝這 30 年同月份符合天數 ÷ 30。氣溫與雨量月統計不隨條件篩選：先計算各年月的平均氣溫與累積雨量，再平均相同月份；各項只納入每日資料完整的年月，缺值以「—」表示，表格列出有效年數。</p>
+    <p>鄉鎮界採內政部資料，由 pdmaptw 整理（2025-03-18 版），依政府資料開放授權條款第 1 版使用；詳見 <a href="https://github.com/plotdb/pdmaptw#license">鄉鎮界來源與授權</a>。</p>
+  </details>
 </footer>
+<dialog class="share-dialog" id="share-dialog" aria-labelledby="share-title" aria-describedby="share-description">
+  <div class="share-dialog-head"><h2 id="share-title">分享我的條件</h2><button type="button" id="share-close">關閉</button></div>
+  <p id="share-description">分享這次的舒適條件，或製作一張地圖圖片。</p>
+  <div class="share-options">
+    <button type="button" id="share-link-option" aria-pressed="false" autofocus>連結分享</button>
+    <button type="button" id="share-image-option" aria-pressed="false">圖片分享</button>
+  </div>
+  <p id="share-dialog-notice" role="status"></p>
+  <div id="manual-share" hidden><label for="share-url">請選取並複製此連結</label><input id="share-url" type="text" readonly></div>
+  <p id="share-image-availability"></p>
+  <div id="share-image-panel" hidden>
+    <p id="share-image-notice" role="status"></p>
+    <img class="share-preview" id="share-preview" width="1080" height="1350" alt="全台舒適度地圖分享圖片" hidden>
+    <div class="share-image-actions">
+      <button type="button" id="share-image-send" disabled hidden>分享圖片</button>
+      <a id="share-image-download" download="taiwan-comfort-map.png" hidden>下載 PNG</a>
+    </div>
+  </div>
+</dialog>
 <script>
 const STOPS = [
   [0, [253, 243, 254]],
@@ -554,6 +620,209 @@ function rankTowns(rows, regions, key, direction) {
 
 const $ = (id) => document.getElementById(id);
 const banner = $('banner');
+// 打包時以同一批內容雜湊路徑取代所有資料網址。
+const DATA_FILES = {meta: 'data/meta.json', geo: 'data/towns.geojson', climate: 'data/climate.bin', gzip: null, weather: 'data/weather-details.json'};
+
+function defaultShareState() {
+  return {
+    town: '', temperature: {mode: 'basic', basic: {lo: 20, hi: 28}, advanced: {lo: 20, hi: 28}},
+    rain: {mode: 'dry', lo: 0, hi: 4}, sun: {mode: 'sun', lo: 6, hi: 12}, wind: {mode: 'any', lo: 5, hi: 30},
+    regions: Object.keys(REGION_COUNTIES), sort: 'days', direction: 'descending',
+  };
+}
+
+function encodeShareState(state) {
+  const pair = (range) => `${range.lo},${range.hi}`;
+  const params = new URLSearchParams({
+    v: '1', town: state.town, temperature: state.temperature.mode,
+    basic: pair(state.temperature.basic), advanced: pair(state.temperature.advanced),
+    rain: state.rain.mode, rainRange: pair(state.rain), sun: state.sun.mode, sunRange: pair(state.sun),
+    wind: state.wind.mode, windRange: pair(state.wind), regions: state.regions.join(','),
+    sort: state.sort, direction: state.direction,
+  });
+  return `#${params}`;
+}
+
+function decodeShareState(hash, townCodes) {
+  const fallback = (invalid) => ({state: defaultShareState(), shared: false, invalid});
+  if (!hash || hash === '#') return fallback(false);
+  try {
+    if (hash.length > 4096 || /%(?![0-9a-f]{2})/i.test(hash)) throw new Error('fragment');
+    const params = new URLSearchParams(hash.slice(1));
+    const keys = ['v', 'town', 'temperature', 'basic', 'advanced', 'rain', 'rainRange', 'sun', 'sunRange', 'wind', 'windRange', 'regions', 'sort', 'direction'];
+    if ([...params].length !== keys.length || keys.some((key) => params.getAll(key).length !== 1) || params.get('v') !== '1') throw new Error('version');
+    const choice = (key, values) => {
+      const value = params.get(key);
+      if (!values.includes(value)) throw new Error(key);
+      return value;
+    };
+    const pair = (key, min = -Infinity, max = Infinity, step = null) => {
+      const parts = params.get(key).split(',');
+      if (parts.length !== 2 || parts.some((part) => !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(part))) throw new Error(key);
+      const [lo, hi] = parts.map(Number);
+      if (![lo, hi].every(Number.isFinite) || lo > hi || lo < min || hi > max || (step && [lo, hi].some((value) => !Number.isInteger(value / step)))) throw new Error(key);
+      return {lo, hi};
+    };
+    const town = params.get('town');
+    if (town && !townCodes.has(town)) throw new Error('town');
+    const regionText = params.get('regions');
+    const regions = regionText ? regionText.split(',') : [];
+    if (new Set(regions).size !== regions.length || regions.some((region) => !Object.hasOwn(REGION_COUNTIES, region))) throw new Error('regions');
+    return {shared: true, invalid: false, state: {
+      town,
+      temperature: {mode: choice('temperature', ['basic', 'advanced']), basic: pair('basic', 15, 35, 0.5), advanced: pair('advanced')},
+      rain: {mode: choice('rain', ['any', 'dry', 'wet']), ...pair('rainRange', 0, 4, 1)},
+      sun: {mode: choice('sun', ['any', 'sun']), ...pair('sunRange', 1, 12, 0.5)},
+      wind: {mode: choice('wind', ['any', 'wind']), ...pair('windRange', 5, 70, 1)},
+      regions: Object.keys(REGION_COUNTIES).filter((region) => regions.includes(region)),
+      sort: choice('sort', ['name', 'days']), direction: choice('direction', ['ascending', 'descending']),
+    }};
+  } catch {
+    return fallback(true);
+  }
+}
+
+async function shareLink(url, browser = navigator) {
+  if (typeof browser.share === 'function') {
+    try {
+      await browser.share({title: '台灣舒適度地圖', text: '看看這些條件下，各鄉鎮歷年平均每年有多少天符合。', url});
+      return 'shared';
+    } catch (error) {
+      if (error?.name === 'AbortError') return 'cancelled';
+    }
+  }
+  try {
+    await browser.clipboard.writeText(url);
+    return 'copied';
+  } catch {
+    return 'manual';
+  }
+}
+
+function cleanSiteUrl(location) {
+  return location.origin + location.pathname;
+}
+
+function canShareImage(file, browser = navigator) {
+  try {
+    return typeof browser.share === 'function' && typeof browser.canShare === 'function' && browser.canShare({files: [file]});
+  } catch {
+    return false;
+  }
+}
+
+async function shareImage(file, browser = navigator) {
+  if (!canShareImage(file, browser)) return 'unavailable';
+  try {
+    await browser.share({title: '台灣舒適度地圖', files: [file]});
+    return 'shared';
+  } catch (error) {
+    return error?.name === 'AbortError' ? 'cancelled' : 'failed';
+  }
+}
+
+function shareConditionLines(state) {
+  const temperature = state.temperature[state.temperature.mode];
+  let rain = '不限降雨';
+  if (state.rain.mode === 'dry') rain = '無雨（日雨量小於 1 毫米）';
+  if (state.rain.mode === 'wet') {
+    const lo = RAIN_LEVELS[state.rain.lo].min;
+    const hi = RAIN_LEVELS[state.rain.hi].max;
+    rain = Number.isFinite(hi) ? `有雨（${lo} ≤ 日雨量 < ${hi} 毫米）` : `有雨（日雨量 ≥ ${lo} 毫米）`;
+  }
+  return [
+    ['氣溫（每日最低與最高溫）', `${temperature.lo}～${temperature.hi}℃`],
+    ['降雨', rain],
+    ['估計日照', state.sun.mode === 'any' ? '不限' : `${state.sun.lo}～${state.sun.hi} 小時`],
+    ['日最大風速', state.wind.mode === 'any' ? '不限' : `${state.wind.lo}～${state.wind.hi} km/h`],
+  ];
+}
+
+function drawShareText(context, text, x, y, width, size, weight = 400, color = '#14233D') {
+  const family = 'system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif';
+  context.font = `${weight} ${size}px ${family}`;
+  const measured = context.measureText(text).width;
+  if (measured > width) {
+    size *= width / measured;
+    context.font = `${weight} ${size}px ${family}`;
+  }
+  context.fillStyle = color;
+  context.fillText(text, x, y);
+}
+
+function renderShareImage(card, canvas = document.createElement('canvas'), makePath = (d) => new Path2D(d)) {
+  if (!card.town || !Number.isFinite(card.days) || !card.map?.paths.length) throw new Error('尚無可分享的鄉鎮結果');
+  canvas.width = 1080;
+  canvas.height = 1350;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('無法建立分享圖片');
+  context.textBaseline = 'top';
+  context.fillStyle = '#FFFFFF';
+  context.fillRect(0, 0, 1080, 1350);
+  drawShareText(context, '台灣舒適度地圖', 64, 52, 952, 42, 700);
+  drawShareText(context, `住在 ${card.town.name}`, 64, 124, 952, 36, 600);
+  drawShareText(context, '每年約', 64, 222, 100, 28, 400, '#526077');
+  const days = `${card.days.toFixed(1)} 天`;
+  drawShareText(context, days, 180, 190, 390, 72, 700);
+  const endX = 180 + context.measureText(days).width + 20;
+  drawShareText(context, '令你感到舒適', endX, 222, 1016 - endX, 28, 400, '#526077');
+
+  context.fillStyle = '#EBEFF8';
+  context.fillRect(48, 290, 984, 640);
+  const scale = Math.min(952 / card.map.width, 616 / card.map.height);
+  const x = 64 + (952 - card.map.width * scale) / 2;
+  const y = 302 + (616 - card.map.height * scale) / 2;
+  context.save();
+  context.translate(x, y);
+  context.scale(scale, scale);
+  for (const path of card.map.paths) {
+    const shape = makePath(path.d);
+    context.fillStyle = path.fill;
+    context.fill(shape, 'evenodd');
+    context.strokeStyle = '#64748B';
+    context.lineWidth = 0.45 / scale;
+    context.stroke(shape);
+  }
+  const selected = card.map.paths.find((path) => path.code === card.town.code);
+  if (selected) {
+    context.strokeStyle = '#0F172A';
+    context.lineWidth = 2.2 / scale;
+    context.stroke(makePath(selected.d));
+  }
+  context.restore();
+  const gradient = context.createLinearGradient(64, 0, 1016, 0);
+  for (const [stop, rgb] of STOPS) gradient.addColorStop(stop / 365, `rgb(${rgb.join(',')})`);
+  context.fillStyle = gradient;
+  context.fillRect(64, 952, 952, 14);
+  for (let value = 0; value <= 350; value += 50) {
+    context.textAlign = value === 0 ? 'left' : value === 350 ? 'right' : 'center';
+    drawShareText(context, value === 350 ? '350 天／年' : String(value), value === 350 ? 1016 : 64 + 952 * value / 365, 976, 150, 20, 400, '#526077');
+  }
+  context.textAlign = 'left';
+  shareConditionLines(card.state).forEach(([label, value], index) => {
+    const column = index % 2, row = Math.floor(index / 2);
+    const left = 64 + column * 490, top = 1030 + row * 76;
+    drawShareText(context, label, left, top, 462, 21, 400, '#526077');
+    drawShareText(context, value, left, top + 28, 462, 28, 600);
+  });
+  drawShareText(context, card.siteUrl, 64, 1210, 952, 25, 500, '#3157A5');
+  drawShareText(context, '1991–2020 歷年平均估算；非即時觀測或天氣預報。', 64, 1254, 952, 22, 400, '#526077');
+  drawShareText(context, '氣候：NASA POWER；地形：Open-Meteo／Copernicus DEM', 64, 1290, 952, 18, 400, '#526077');
+  drawShareText(context, '鄉鎮界：內政部資料（pdmaptw 整理）', 64, 1316, 952, 18, 400, '#526077');
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => {
+    if (blob) resolve(blob);
+    else reject(new Error('無法匯出分享圖片'));
+  }, 'image/png'));
+}
+
+function effectiveConditions(controls) {
+  return JSON.stringify([
+    controls.tempLo, controls.tempHi, controls.rainMode,
+    ...(controls.rainMode === 'wet' ? [controls.rainLo, controls.rainHi] : []),
+    controls.useSun, ...(controls.useSun ? [controls.sunMin, controls.sunMax] : []),
+    controls.useWind, ...(controls.useWind ? [controls.windMin, controls.windMax] : []),
+  ]);
+}
 
 function colorFor(days) {
   const x = Math.max(0, Math.min(365, days));
@@ -700,6 +969,16 @@ function bindTemperatureControls(onUpdate) {
     sync();
     onUpdate(true);
   });
+  Object.defineProperty(state, 'restore', {value: (saved) => {
+    pointer.cancel();
+    state.basic = {...saved.basic};
+    state.advanced = {...saved.advanced};
+    state.mode = saved.mode;
+    state.min = state.mode === 'basic' ? 15 : Math.min(-5, state.advanced.lo);
+    state.max = state.mode === 'basic' ? 35 : Math.max(40, state.advanced.hi);
+    for (const radio of document.querySelectorAll('input[name="temperature-mode"]')) radio.checked = radio.value === state.mode;
+    sync();
+  }});
   sync();
   return state;
 }
@@ -739,7 +1018,9 @@ function keepRing(ring) {
 
 function showError(error) {
   banner.hidden = false;
-  banner.textContent = `氣候資料載入失敗（${error.message}），請重新整理頁面。`;
+  banner.textContent = '主資料載入失敗，尚無法計算結果。請檢查網路後重試。';
+  $('main-retry').hidden = false;
+  console.warn('主資料載入失敗', error);
 }
 
 function rainMatches(rain, mode, lo, hi) {
@@ -1007,26 +1288,63 @@ function climateChart(monthly, width = 720) {
   return markup + `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/><text class="axis-title" x="${(left + right) / 2}" y="305" text-anchor="middle">月份</text>`;
 }
 
+async function fetchData(url, kind) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return kind === 'json' ? response.json() : response;
+}
+
+function validateClimate(buffer, meta) {
+  if (buffer.byteLength < 16) throw new Error('氣候資料不完整');
+  const header = new DataView(buffer);
+  const magic = String.fromCharCode(...new Uint8Array(buffer, 0, 4));
+  const cells = header.getUint16(6, true), days = header.getUint16(8, true), variables = header.getUint16(10, true);
+  if (magic !== 'CWCM' || header.getUint16(4, true) !== 1 || variables !== 6 || cells !== meta.cells.length || days !== meta.days || buffer.byteLength !== 16 + cells * days * variables) throw new Error('氣候資料格式或筆數不符');
+  return buffer;
+}
+
+async function loadClimate(files, meta, progress = () => {}, decompress = globalThis.DecompressionStream) {
+  if (files.gzip && typeof decompress === 'function') {
+    try {
+      progress('正在下載壓縮氣候資料…');
+      const response = await fetchData(files.gzip, 'response');
+      progress('正在解壓氣候資料…');
+      const buffer = await new Response(response.body.pipeThrough(new decompress('gzip'))).arrayBuffer();
+      return validateClimate(buffer, meta);
+    } catch {
+      progress('壓縮資料無法使用，正在改讀原始氣候資料…');
+    }
+  } else {
+    progress('正在下載原始氣候資料…');
+  }
+  const response = await fetchData(files.climate, 'response');
+  return validateClimate(await response.arrayBuffer(), meta);
+}
+
+function setMainReady(ready) {
+  $('app').setAttribute('aria-busy', String(!ready));
+  $('condition-controls').disabled = !ready;
+  for (const element of document.querySelectorAll('.tools button, #town-select, .region-filters input, [data-sort]')) element.disabled = !ready;
+  $('map').tabIndex = ready ? 0 : -1;
+}
+
 async function load() {
-  const [metaRes, geoRes, binRes] = await Promise.all([
-    fetch('data/meta.json'),
-    fetch('data/towns.geojson'),
-    fetch('data/climate.bin')
-  ]);
-  if (!metaRes.ok || !geoRes.ok || !binRes.ok) throw new Error('HTTP');
-  return [await metaRes.json(), await geoRes.json(), await binRes.arrayBuffer()];
+  setMainReady(false);
+  banner.hidden = false;
+  $('main-retry').hidden = true;
+  banner.textContent = '正在下載鄉鎮界與資料索引…';
+  const [meta, geo] = await Promise.all([fetchData(DATA_FILES.meta, 'json'), fetchData(DATA_FILES.geo, 'json')]);
+  const buffer = await loadClimate(DATA_FILES, meta, (message) => { banner.textContent = message; });
+  banner.textContent = '正在建立地圖與條件…';
+  return [meta, geo, buffer];
 }
 
 function boot(meta, geo, buffer) {
+  validateClimate(buffer, meta);
   const header = new DataView(buffer);
-  const magic = String.fromCharCode(header.getUint8(0), header.getUint8(1), header.getUint8(2), header.getUint8(3));
-  if (magic !== 'CWCM') throw new Error('檔案格式不符');
   const nCells = header.getUint16(6, true);
   const nDays = header.getUint16(8, true);
   const nVars = header.getUint16(10, true);
-  if (nDays !== meta.days || nCells !== meta.cells.length || nVars !== 6) {
-    throw new Error('資料筆數對不上');
-  }
   const plane = nCells * nDays;
   const planes = Array.from({length: nVars}, (_, i) => new Uint8Array(buffer, 16 + i * plane, plane));
   const months = meta.months;
@@ -1150,7 +1468,15 @@ function boot(meta, geo, buffer) {
     select.append(option);
   }
 
-  let selected = '';
+  const restored = decodeShareState(window.location.hash, new Set(townByCode.keys()));
+  let selected = restored.state.town;
+  let recommendPending = !selected;
+  let shareRequest = 0;
+  let shareContext = null;
+  let imageFile = null;
+  let imageUrl = null;
+  let computedKey = null;
+  let resultsReady = false;
   let scores = [];
   let monthScores = [];
   let timer = 0;
@@ -1164,6 +1490,35 @@ function boot(meta, geo, buffer) {
   const regionInputs = [...document.querySelectorAll('input[name="region"]')];
   const rankingItems = new Map();
   const temperature = bindTemperatureControls((announce) => announce ? render(true, true) : schedule(false));
+
+  function snapshot() {
+    const range = (name, loId, hiId) => ({mode: document.querySelector(`input[name="${name}-mode"]:checked`).value, lo: readNumber($(loId)), hi: readNumber($(hiId))});
+    return {
+      town: selected,
+      temperature: {mode: temperature.mode, basic: {...temperature.basic}, advanced: {...temperature.advanced}},
+      rain: range('rain', 'rain-lo', 'rain-hi'), sun: range('sun', 'sun-min', 'sun-max'), wind: range('wind', 'wind-min', 'wind-max'),
+      regions: regionInputs.filter((input) => input.checked).map((input) => input.value), sort: sortKey, direction: sortDirection,
+    };
+  }
+
+  function clearShareAddress() {
+    if (window.location.hash || window.location.search) window.history.replaceState(null, '', window.location.pathname);
+  }
+
+  function applyState(state) {
+    temperature.restore(state.temperature);
+    for (const [name, loId, hiId] of [['rain', 'rain-lo', 'rain-hi'], ['sun', 'sun-min', 'sun-max'], ['wind', 'wind-min', 'wind-max']]) {
+      for (const radio of document.querySelectorAll(`input[name="${name}-mode"]`)) radio.checked = radio.value === state[name].mode;
+      $(loId).value = String(state[name].lo);
+      $(hiId).value = String(state[name].hi);
+    }
+    for (const input of regionInputs) input.checked = state.regions.includes(input.value);
+    sortKey = state.sort;
+    sortDirection = state.direction;
+    selected = state.town;
+    recommendPending = !selected;
+    syncModes();
+  }
 
   function readNumber(input) {
     return Number(input.value);
@@ -1201,6 +1556,8 @@ function boot(meta, geo, buffer) {
 
   function compute() {
     const controls = readControls();
+    const key = effectiveConditions(controls);
+    if (computedKey === key) return;
     scores = new Array(nCells);
     monthScores = new Array(nCells);
     for (let cell = 0; cell < nCells; cell += 1) {
@@ -1214,6 +1571,7 @@ function boot(meta, geo, buffer) {
       scores[cell] = matched / meta.years;
       monthScores[cell] = Array.from(byMonth, (count) => count / meta.years);
     }
+    computedKey = key;
   }
 
   function paintReads() {
@@ -1276,7 +1634,7 @@ function boot(meta, geo, buffer) {
       const cell = document.createElement('td');
       cell.colSpan = 2;
       cell.className = 'ranking-empty';
-      cell.textContent = '請至少勾選一個分區。';
+      cell.textContent = resultsReady ? '請至少勾選一個分區。' : '等待雨量資料，尚無法計算目前條件。';
       item.append(cell);
       body.replaceChildren(item);
     }
@@ -1322,11 +1680,11 @@ function boot(meta, geo, buffer) {
 
   function showTown() {
     const town = townByCode.get(selected);
-    $('town-prompt').hidden = Boolean(town);
+    $('town-prompt').hidden = Boolean(town) && resultsReady;
+    $('town-prompt').textContent = resultsReady ? '點選地圖、表格或上方選單，查看鄉鎮的每月天數與氣候。' : '目前降雨條件需要雨量資料；載入完成或重試成功後才會顯示結果。';
     $('place-lead').hidden = !town;
-    $('place-tail').hidden = !town;
-    $('annual').hidden = !town;
-    $('matching-section').hidden = !town;
+    $('annual').hidden = !town || !resultsReady;
+    $('matching-section').hidden = !town || !resultsReady;
     $('climate-section').hidden = !town;
     if (!town) {
       $('place-days').textContent = '';
@@ -1337,12 +1695,17 @@ function boot(meta, geo, buffer) {
       select.value = '';
       return;
     }
-    const days = scores[town.cell];
-    $('place-days').textContent = `${days.toFixed(1)} 天`;
     select.value = town.code;
-    const series = monthScores[town.cell];
-    drawChart('months', 270, (width) => matchingChart(series, width));
-    $('months').setAttribute('aria-label', `每月平均舒適天數，縱軸固定零至三十一天。${series.map((value, index) => `${MONTHS[index]} ${value.toFixed(1)} 天`).join('；')}`);
+    if (resultsReady) {
+      const days = scores[town.cell];
+      $('place-days').textContent = `${days.toFixed(1)} 天`;
+      const series = monthScores[town.cell];
+      drawChart('months', 270, (width) => matchingChart(series, width));
+      $('months').setAttribute('aria-label', `每月平均舒適天數，縱軸固定零至三十一天。${series.map((value, index) => `${MONTHS[index]} ${value.toFixed(1)} 天`).join('；')}`);
+    } else {
+      $('place-days').textContent = '';
+      $('months').replaceChildren();
+    }
     if (lastClimateTown === town.code) return;
     const climate = climateByTown.get(town.code);
     $('climate-content').hidden = !climate;
@@ -1359,9 +1722,27 @@ function boot(meta, geo, buffer) {
 
   function render(announce, selectBest = false) {
     window.clearTimeout(timer);
+    timer = 0;
     paintReads();
-    if (!weather && readControls().rainMode !== 'any') return;
+    if (selectBest) recommendPending = true;
+    if (!weather && readControls().rainMode !== 'any') {
+      resultsReady = false;
+      scores = [];
+      monthScores = [];
+      computedKey = null;
+      rankingRows = [];
+      for (const path of paths.values()) {
+        path.setAttribute('fill', '#E2E8F0');
+        path.classList.toggle('is-selected', path.dataset.code === selected);
+      }
+      $('tip').hidden = true;
+      $('live').textContent = '等待雨量資料，尚無法計算目前條件。';
+      renderRanking();
+      showTown();
+      return;
+    }
     compute();
+    resultsReady = true;
     for (const town of meta.towns) {
       const path = paths.get(town.code);
       if (!path) continue;
@@ -1373,10 +1754,11 @@ function boot(meta, geo, buffer) {
     rankingRows = ranked;
     const regions = new Set(regionInputs.filter((input) => input.checked).map((input) => input.value));
     const eligible = rankTowns(ranked, regions, 'days', 'descending');
-    if (selectBest) {
+    if (recommendPending) {
       const best = eligible[0]?.code || '';
       if (selected !== best) cancelCamera();
       selected = best;
+      recommendPending = false;
     }
     renderRanking();
     for (const path of paths.values()) path.classList.toggle('is-selected', path.dataset.code === selected);
@@ -1400,6 +1782,7 @@ function boot(meta, geo, buffer) {
   function choose(code) {
     cancelCamera();
     selected = code;
+    recommendPending = false;
     render(false);
     const path = paths.get(code);
     if (path) centerTown(path);
@@ -1435,7 +1818,7 @@ function boot(meta, geo, buffer) {
 
   function syncModes() {
     const controls = readControls();
-    for (const [id, active] of [['rain-extra', controls.rainMode === 'wet' && Boolean(weather)], ['sun-extra', controls.useSun], ['wind-extra', controls.useWind]]) {
+    for (const [id, active] of [['rain-extra', controls.rainMode === 'wet'], ['sun-extra', controls.useSun], ['wind-extra', controls.useWind]]) {
       $(id).hidden = !active;
       for (const input of $(id).querySelectorAll('input')) input.disabled = !active;
     }
@@ -1450,10 +1833,13 @@ function boot(meta, geo, buffer) {
     if (weatherLoading) return;
     weatherLoading = true;
     $('weather-status').hidden = false;
-    $('weather-message').textContent = '正在讀取精確雨量與月氣候資料…';
+    $('weather-message').textContent = '正在下載雨量與月氣候資料…';
     $('weather-retry').hidden = true;
+    $('weather-retry').disabled = true;
+    lastClimateTown = null;
+    showTown();
     try {
-      const response = await fetch('data/weather-details.json', {cache: 'no-cache'});
+      const response = await fetch(DATA_FILES.weather);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       weather = validateWeather(await response.json(), meta);
       climateByTown = new Map(weather.towns.map((town) => [town.code, town]));
@@ -1461,19 +1847,162 @@ function boot(meta, geo, buffer) {
     } catch (error) {
       weather = null;
       climateByTown.clear();
-      document.querySelector('input[name="rain-mode"][value="any"]').checked = true;
-      $('weather-message').textContent = '精確雨量與月氣候資料載入失敗。降雨條件暫設為「不限」；其餘條件仍可使用。';
+      $('weather-message').textContent = '雨量與月氣候資料載入失敗，已保留你的條件。請重試；也可自行選擇降雨「不限」來使用其餘條件。';
       $('weather-retry').hidden = false;
       console.warn('補充氣象資料載入失敗', error);
     } finally {
       weatherLoading = false;
-      for (const input of document.querySelectorAll('input[name="rain-mode"]')) input.disabled = input.value !== 'any' && !weather;
+      $('weather-retry').disabled = false;
       lastClimateTown = null;
+      computedKey = null;
       syncModes();
-      render(true, true);
+      render(true);
     }
   }
   $('weather-retry').addEventListener('click', refreshWeather);
+
+  const shareDialog = $('share-dialog');
+  function clearShareOutput() {
+    shareRequest++;
+    imageFile = null;
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    imageUrl = null;
+    $('share-preview').removeAttribute('src');
+    $('share-preview').hidden = true;
+    $('share-image-download').removeAttribute('href');
+    $('share-image-download').hidden = true;
+    $('share-image-send').hidden = true;
+    $('share-image-send').disabled = true;
+    $('share-image-panel').hidden = true;
+    $('manual-share').hidden = true;
+    $('share-url').value = '';
+    $('share-dialog-notice').textContent = '';
+    $('share-image-notice').textContent = '';
+    $('share-link-option').disabled = false;
+    $('share-image-option').disabled = !shareContext?.ready || !shareContext?.town;
+    for (const id of ['share-link-option', 'share-image-option']) $(id).setAttribute('aria-pressed', 'false');
+  }
+  function closeShareDialog() {
+    shareContext = null;
+    clearShareOutput();
+    if (shareDialog.open) shareDialog.close();
+  }
+  shareDialog.addEventListener('close', () => {
+    if (shareDialog.open) return;
+    closeShareDialog();
+    $('share-conditions').focus({preventScroll: true});
+  });
+  $('share-close').addEventListener('click', closeShareDialog);
+
+  $('share-conditions').addEventListener('click', () => {
+    if (temperature.mode === 'advanced' && ['lo', 'hi'].some((key) => $(`temperature-${key}-number`).getAttribute('aria-invalid') === 'true')) {
+      $('share-notice').textContent = '請先修正氣溫輸入，再分享我的條件。';
+      return;
+    }
+    if (timer) render(false, true);
+    const state = snapshot(), town = townByCode.get(state.town);
+    shareContext = {
+      state, town: town ? {code: town.code, name: town.name} : null,
+      ready: resultsReady, days: town && resultsReady ? scores[town.cell] : null,
+      siteUrl: cleanSiteUrl(window.location),
+      map: {width: vbW, height: vbH, paths: resultsReady ? [...paths].map(([code, path]) => ({code, d: path.getAttribute('d'), fill: path.getAttribute('fill')})) : []},
+    };
+    clearShareOutput();
+    $('share-notice').textContent = '';
+    $('share-image-availability').textContent = !town ? '請先選擇鄉鎮，再分享圖片。條件連結仍可分享。'
+      : !resultsReady ? '目前資料尚無法計算你的條件。資料載入成功後，請重新開啟分享視窗製作圖片；條件連結仍可分享。' : '';
+    shareDialog.showModal();
+  });
+
+  $('share-link-option').addEventListener('click', async () => {
+    if (!shareContext) return;
+    clearShareOutput();
+    const url = shareContext.siteUrl + encodeShareState(shareContext.state);
+    const request = shareRequest, button = $('share-link-option');
+    button.setAttribute('aria-pressed', 'true');
+    button.disabled = true;
+    try {
+      const result = await shareLink(url);
+      if (request !== shareRequest) return;
+      if (result === 'copied') $('share-dialog-notice').textContent = '已複製我的條件連結。';
+      if (result === 'manual') {
+        $('share-dialog-notice').textContent = '請手動複製以下連結。';
+        $('manual-share').hidden = false;
+        $('share-url').value = url;
+        $('share-url').focus();
+        $('share-url').select();
+      }
+    } finally {
+      if (request === shareRequest) button.disabled = false;
+    }
+  });
+
+  $('share-image-option').addEventListener('click', async () => {
+    if (!shareContext?.town || !shareContext.ready) return;
+    clearShareOutput();
+    const request = shareRequest, card = shareContext, button = $('share-image-option');
+    button.setAttribute('aria-pressed', 'true');
+    button.disabled = true;
+    $('share-image-panel').hidden = false;
+    $('share-image-notice').textContent = '正在製作分享圖片…';
+    try {
+      const blob = await renderShareImage(card);
+      if (request !== shareRequest) return;
+      const filename = `taiwan-comfort-map-${card.town.code}.png`;
+      imageFile = new File([blob], filename, {type: 'image/png'});
+      imageUrl = URL.createObjectURL(blob);
+      $('share-preview').setAttribute('src', imageUrl);
+      $('share-preview').setAttribute('alt', `${card.town.name}每年約 ${card.days.toFixed(1)} 天符合條件，附全台舒適度地圖與設定。`);
+      $('share-preview').hidden = false;
+      $('share-image-download').setAttribute('href', imageUrl);
+      $('share-image-download').setAttribute('download', filename);
+      $('share-image-download').hidden = false;
+      const supported = canShareImage(imageFile);
+      $('share-image-send').hidden = !supported;
+      $('share-image-send').disabled = !supported;
+      $('share-image-notice').textContent = supported ? '預覽確認後，可分享圖片或下載 PNG。' : '圖片已就緒。此瀏覽器無法直接分享圖片，請下載 PNG 後分享。';
+    } catch {
+      if (request === shareRequest) $('share-image-notice').textContent = '圖片製作失敗，請再按一次「圖片分享」重試。';
+    } finally {
+      if (request === shareRequest) button.disabled = false;
+    }
+  });
+
+  $('share-image-send').addEventListener('click', async () => {
+    if (!imageFile) return;
+    const request = shareRequest, button = $('share-image-send');
+    button.disabled = true;
+    try {
+      const result = await shareImage(imageFile);
+      if (request !== shareRequest) return;
+      if (result === 'unavailable' || result === 'failed') $('share-image-notice').textContent = '目前無法直接分享圖片，請下載 PNG 後分享。';
+    } finally {
+      if (request === shareRequest) button.disabled = false;
+    }
+  });
+
+  $('reset-conditions').addEventListener('click', () => {
+    window.clearTimeout(timer);
+    closeShareDialog();
+    for (const {controller} of pairControllers) controller.cancel();
+    applyState(defaultShareState());
+    showAll();
+    $('share-notice').textContent = '已恢復預設條件。';
+    document.querySelector('.ranking-scroll').scrollTop = 0;
+    clearShareAddress();
+    render(true, true);
+  });
+  window.addEventListener('hashchange', () => {
+    window.clearTimeout(timer);
+    closeShareDialog();
+    const next = decodeShareState(window.location.hash, new Set(townByCode.keys()));
+    for (const {controller} of pairControllers) controller.cancel();
+    applyState(next.state);
+    showAll();
+    $('share-notice').textContent = next.invalid ? '分享連結無效或版本不支援，已恢復預設條件。' : '';
+    render(false);
+    clearShareAddress();
+  });
 
   const tip = $('tip');
   let drag = null;
@@ -1548,9 +2077,16 @@ function boot(meta, geo, buffer) {
 
   const gradient = STOPS.map(([stop, rgb]) => `rgb(${rgb.join(',')}) ${stop / 365 * 100}%`).join(', ');
   $('legend-bar').style.background = `linear-gradient(90deg, ${gradient})`;
+  applyState(restored.state);
+  if (restored.invalid) {
+    $('share-notice').textContent = '分享連結無效或版本不支援，已恢復預設條件。';
+  }
+  clearShareAddress();
+  for (const input of document.querySelectorAll('input[name="rain-mode"]')) input.disabled = false;
+  setMainReady(true);
   banner.hidden = true;
   syncModes();
-  paintReads();
+  render(false);
   let resizeFrame = 0;
   const resizeObserver = new ResizeObserver(() => {
     cancelAnimationFrame(resizeFrame);
@@ -1563,6 +2099,7 @@ function boot(meta, geo, buffer) {
 }
 
 load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError);
+$('main-retry').addEventListener('click', () => load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError));
 </script>
 </body>
 </html>
