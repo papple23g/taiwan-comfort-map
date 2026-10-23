@@ -44,10 +44,10 @@
     justify-content: space-between;
     padding: 16px 16px 0;
   }
-  .lede { max-width: 42rem; margin-top: 6px; color: var(--hint); }
   .shell {
     display: grid;
-    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    grid-template-columns: clamp(280px, 22vw, 320px) minmax(0, 1fr);
+    grid-template-rows: min-content 1fr;
     gap: 16px;
     padding: 16px;
     align-items: start;
@@ -58,38 +58,28 @@
     padding: 14px;
   }
   .conditions { grid-column: 1; grid-row: 1; }
-  main { grid-column: 2; grid-row: 1 / span 2; min-width: 0; }
+  main { grid-column: 2; grid-row: 1 / span 2; min-width: 0; display: grid; gap: 16px; align-items: start; }
+  .map-region { min-width: 0; }
   .lists { grid-column: 1; grid-row: 2; }
-  .tools button, .rank {
+  .tools button {
     min-height: 44px;
     border: 1px solid var(--primary);
     background: var(--panel);
     color: var(--primary);
     padding: 8px 10px;
   }
-  .field {
-    display: grid;
-    grid-template-columns: auto minmax(60px, 1fr) auto;
-    align-items: center;
-    column-gap: 6px;
-    margin-top: 14px;
-  }
-  .field-head { display: contents; }
-  .field .label { grid-column: 1; grid-row: 1; font-size: 0.875rem; white-space: nowrap; }
-  .field .value { grid-column: 3; grid-row: 1; font-size: 0.875rem; white-space: nowrap; }
-  .field .temperature-range { grid-column: 2; grid-row: 1; }
   .temperature-range { display: flex; align-items: center; gap: 4px; min-width: 0; }
   .temperature-range .dual { flex: 1; min-width: 0; margin-top: 0; }
   .temperature-range .cold { color: #2563EB; }
   .temperature-range .hot { color: #DC2626; }
-  .field .hint { grid-column: 1 / -1; }
-  .select-label, .label {
+  .temperature-range > .icon { align-self: flex-end; margin-bottom: 13px; }
+  .temperature-output { display: block; text-align: center; color: var(--heading); font-size: 0.875rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .select-label {
     display: flex;
     align-items: center;
     gap: 8px;
   }
   .select-label { justify-content: space-between; }
-  .label { justify-content: flex-start; min-height: 44px; }
   .icon { width: 20px; height: 20px; flex: none; color: var(--primary); }
   .value { font-variant-numeric: tabular-nums; font-weight: 650; }
   .hint { color: var(--hint); font-size: 0.875rem; margin-top: 4px; }
@@ -162,8 +152,6 @@
     box-shadow: 0 2px 6px rgb(15 23 42 / 3%);
   }
   .conditions h2 { margin-bottom: 20px; color: var(--ink); font-size: 1.125rem; font-weight: 700; }
-  .conditions .field { margin-top: 12px; padding-bottom: 14px; border-bottom: 1px solid #E8EDF4; column-gap: 8px; }
-  .conditions .label { gap: 6px; font-weight: 600; }
   .conditions .icon { width: 18px; height: 18px; }
   .conditions .hint { color: #526077; font-size: 0.75rem; line-height: 1.7; margin-top: 4px; }
   .conditions .value {
@@ -222,6 +210,12 @@
   .conditions .single::-moz-range-track { height: 4px; border-radius: 4px; background: var(--track-gradient); }
   .conditions .single::-moz-range-progress { background: transparent; }
   .conditions .single::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid #FFF; border-radius: 50%; background: var(--primary); }
+  .conditions input.bar-handle { touch-action: pan-y; }
+  .conditions input.bar-handle::-webkit-slider-thumb { width: 22px; height: 44px; margin-top: -20px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
+  .conditions input.bar-handle::-moz-range-thumb { width: 22px; height: 44px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
+  .conditions input.bar-handle:focus-visible { outline: none; }
+  .conditions input.bar-handle:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .conditions input.bar-handle:focus-visible::-moz-range-thumb { outline: 2px solid var(--focus); outline-offset: 1px; }
   .map-frame {
     position: relative;
     height: min(74vh, 860px);
@@ -252,8 +246,9 @@
     gap: 6px;
     max-width: calc(100% - 16px);
   }
-  .tools button { background: var(--panel); }
+  .tools button { background: var(--panel); width: 44px; height: 44px; padding: 10px; display: grid; place-items: center; border-radius: 6px; }
   .legend { margin-top: 8px; }
+  .legend-title { margin-top: 4px; text-align: center; font-size: 0.8rem; color: var(--hint); }
   .legend-bar { height: 14px; border: 1px solid #E2E8F0; border-radius: 7px; }
   .legend-labels {
     display: flex;
@@ -263,22 +258,21 @@
     font-variant-numeric: tabular-nums;
     margin-top: 2px;
   }
-  .detail { margin-top: 12px; }
-  .detail { border-radius: 10px; padding: 18px; }
-  .detail-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
-  .detail-head .select-label { flex: 1; min-width: 0; max-width: 360px; }
+  .detail { border-radius: 10px; padding: 18px; min-width: 0; container-type: inline-size; }
+  .detail-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+  .detail-head .select-label { min-width: 0; flex: 0 1 300px; max-width: 300px; }
   .annual { flex: none; text-align: right; }
   .annual > span { display: block; color: #526077; font-size: 0.75rem; }
-  .big { font-size: 1.6rem; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  .big { font-size: clamp(1.25rem, 8cqw, 3.6rem); font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; line-height: 1.25; }
   .empty-state { padding: 24px 0 8px; color: #526077; font-size: 0.875rem; }
   .chart-section { margin-top: 24px; }
   .chart-section + .chart-section { padding-top: 22px; border-top: 1px solid #E2E8F0; }
   .chart-section h2 { color: var(--ink); margin-bottom: 4px; }
   .chart-scroll { overflow-x: auto; max-width: 100%; margin-top: 12px; overscroll-behavior-x: contain; }
-  .chart { display: block; width: 100%; min-width: 720px; height: auto; }
+  .chart { display: block; width: 100%; height: auto; }
   .chart text { font-family: inherit; fill: #526077; font-size: 12px; font-variant-numeric: tabular-nums; }
   .chart .axis-title { font-size: 13px; fill: #334155; }
-  .chart .bar-value { fill: #1E3A8A; font-size: 12px; font-weight: 650; }
+  .chart .bar-value { fill: #1E3A8A; font-size: 11px; font-weight: 650; }
   .chart .gridline { stroke: #E2E8F0; stroke-width: 1; }
   .chart .axis { stroke: #94A3B8; stroke-width: 1; }
   .chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 12px; color: #526077; font-size: 0.8rem; }
@@ -302,19 +296,22 @@
     color: var(--ink);
     padding: 8px;
   }
-  .lists { display: grid; gap: 12px; }
-  ol { list-style: none; margin: 0; padding: 0; }
-  .rank {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    text-align: left;
-    border-color: var(--border);
-    color: var(--ink);
-  }
-  .rank[aria-current="true"] { border-color: var(--primary); background: #EFF6FF; }
-  .days { font-variant-numeric: tabular-nums; color: var(--heading); }
+  .lists { display: grid; gap: 12px; min-width: 0; border-radius: 10px; }
+  .region-filters { display: flex; flex-wrap: wrap; gap: 0 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
+  .region-filters label { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; font-size: 0.875rem; cursor: pointer; }
+  .region-filters input { margin: 0; width: 16px; height: 16px; accent-color: var(--primary); }
+  .ranking-scroll { max-height: 480px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--border); }
+  .ranking-table { min-width: 0; table-layout: fixed; font-size: 0.875rem; }
+  .ranking-table th { position: sticky; top: 0; z-index: 1; padding: 0; background: #F1F5F9; }
+  .ranking-table th:first-child { width: 60%; }
+  .ranking-table th button { width: 100%; min-height: 44px; padding: 8px; border: 0; background: transparent; color: #334155; font-weight: 650; text-align: inherit; white-space: nowrap; }
+  .ranking-table td { padding: 0 8px; white-space: normal; }
+  .ranking-table td:first-child { padding: 0; text-align: left; }
+  .rank { display: block; width: 100%; min-height: 44px; padding: 8px; border: 0; background: transparent; color: var(--ink); text-align: left; }
+  .ranking-table tr:hover { background: #F8FAFC; }
+  .ranking-table tr.is-selected { background: #EFF6FF; box-shadow: inset 3px 0 var(--primary); }
+  .ranking-table .days { color: var(--heading); white-space: nowrap; }
+  .ranking-table .ranking-empty { padding: 20px 8px; text-align: center; color: var(--hint); }
   [hidden] { display: none !important; }
   #banner {
     margin: 12px 16px 0;
@@ -348,17 +345,19 @@
     clip: rect(0, 0, 0, 0);
     border: 0;
   }
+  @media (min-width: 1200px) {
+    main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  }
   @media (max-width: 800px) {
-    .shell { grid-template-columns: 1fr; }
+    .shell { grid-template-columns: 1fr; grid-template-rows: none; }
     .conditions, main, .lists { grid-column: auto; grid-row: auto; }
     .map-frame { height: 72vh; }
   }
   @media (max-width: 480px) {
-    .detail { padding: 14px; }
-    .detail-head { align-items: stretch; flex-direction: column; gap: 10px; }
-    .detail-head .select-label { max-width: none; }
-    .annual { text-align: left; display: flex; align-items: baseline; gap: 10px; }
-    .big { font-size: 1.4rem; }
+    .detail { padding: 14px 12px; }
+    .detail-head { gap: 8px; }
+    .detail-head select { font-size: 0.875rem; padding: 6px; }
+    .annual > span { font-size: 0.65rem; }
     .legend-labels { font-size: 0.65rem; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -370,7 +369,6 @@
 <header class="top">
   <div>
     <h1>台灣舒適度地圖</h1>
-    <p class="lede">資料期間：1991–2020 年。</p>
   </div>
 </header>
 <p id="banner" role="status">正在讀取 30 年的每日天氣…</p>
@@ -378,25 +376,20 @@
 <div class="shell">
     <section class="panel conditions">
       <h2>你的舒適條件</h2>
-      <div class="field">
-        <div class="field-head">
-          <span class="label" id="tmax-label">
-            氣溫
-          </span>
-          <span class="value" id="tmax-read">20–28°C</span>
-        </div>
+      <fieldset class="weather-option" id="temperature-condition">
+        <legend>氣溫</legend>
         <div class="temperature-range">
           <svg class="icon cold" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9 4.5l3 3 3-3M9 19.5l3-3 3 3M4 11l4-1-1-4M20 13l-4 1 1 4M7 18l1-4-4-1M17 6l-1 4 4 1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <div class="dual" id="tmax-dual">
           <div class="dual-track"></div>
           <div class="dual-fill"></div>
-          <input id="tmax-lo" type="range" min="-5" max="35" step="0.5" value="20" aria-label="氣溫下限" aria-describedby="tmax-f">
-          <input id="tmax-hi" type="range" min="-5" max="35" step="0.5" value="28" aria-label="氣溫上限" aria-describedby="tmax-f">
+          <input id="tmax-lo" class="bar-handle" type="range" min="-5" max="35" step="0.5" value="20" aria-label="氣溫下限">
+          <input id="tmax-hi" class="bar-handle" type="range" min="-5" max="35" step="0.5" value="28" aria-label="氣溫上限">
           </div>
           <svg class="icon hot" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3c1 5-3 6-3 9-2-1-2-3-2-3s-4 4-4 7a8 8 0 0 0 16 0c0-5-4-9-7-13zM12 14c2 2 3 3 3 5a3 3 0 0 1-6 0c0-2 2-3 3-5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-        <p class="hint" id="tmax-f">日最高溫與日最低溫都要落在這個區間。華氏約 68–82°F。</p>
-      </div>
+        <output class="temperature-output" id="tmax-read" for="tmax-lo tmax-hi" aria-live="off">20~28℃</output>
+      </fieldset>
       <fieldset class="weather-option" id="rain-condition">
         <legend><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16a4 4 0 0 1-.4-8 5 5 0 0 1 9.7-1.2A3.5 3.5 0 0 1 18 16M8 18.5l-1 2M12 18.5l-1 2M16 18.5l-1 2" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>降雨</legend>
         <div class="segments">
@@ -410,8 +403,8 @@
             <span class="hint">雨量</span>
             <div class="dual" id="rain-dual">
               <div class="dual-track"></div><div class="dual-fill"></div>
-              <input id="rain-lo" type="range" min="1" max="100" step="1" value="1" aria-label="日雨量下限" aria-describedby="rain-range-note">
-              <input id="rain-hi" type="range" min="1" max="100" step="1" value="100" aria-label="日雨量上限" aria-describedby="rain-range-note">
+              <input id="rain-lo" class="bar-handle" type="range" min="1" max="100" step="1" value="1" aria-label="日雨量下限" aria-describedby="rain-range-note">
+              <input id="rain-hi" class="bar-handle" type="range" min="1" max="100" step="1" value="100" aria-label="日雨量上限" aria-describedby="rain-range-note">
             </div>
             <span class="value" id="rain-read">1 毫米以上</span>
           </div>
@@ -426,7 +419,7 @@
         </div>
       <div class="extra" id="sun-extra">
         <label for="sun-min">日照至少 <span class="value" id="sun-read">6 小時</span></label>
-        <input id="sun-min" class="single" type="range" min="1" max="12" step="0.5" value="6">
+        <input id="sun-min" class="single bar-handle" type="range" min="1" max="12" step="0.5" value="6">
       </div>
       </fieldset>
       <fieldset class="weather-option">
@@ -446,31 +439,33 @@
       </div>
     </section>
   <main>
+    <div class="map-region">
     <div class="map-frame" id="map-frame">
       <div class="tools">
-        <button type="button" id="zoom-in">放大</button>
-        <button type="button" id="zoom-out">縮小</button>
-        <button type="button" id="view-all">含離島</button>
-        <button type="button" id="view-main">臺灣本島</button>
+        <button type="button" id="zoom-in" aria-label="放大" title="放大"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button type="button" id="zoom-out" aria-label="縮小" title="縮小"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button type="button" id="view-home" aria-label="回到全圖" title="回到全圖"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8M5 10v11h5v-7h4v7h5V10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
-      <svg id="map" role="group" aria-label="台灣鄉鎮每年符合天數" tabindex="0"></svg>
+      <svg id="map" role="group" aria-label="台灣鄉鎮每年舒適天數" tabindex="0"></svg>
       <div id="tip" hidden></div>
     </div>
     <div class="legend">
       <div class="legend-bar" id="legend-bar"></div>
       <div class="legend-labels"><span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>250</span><span>300</span><span>350 天／年</span></div>
+      <p class="legend-title">舒適天數</p>
+    </div>
     </div>
     <section class="panel detail">
       <div class="detail-head">
         <label class="select-label"><span class="sr-only">選擇鄉鎮市區</span>
           <select id="town-select"><option value="">選擇鄉鎮市區</option></select>
         </label>
-        <div class="annual" id="annual" hidden><span>每年符合天數</span><div class="big" id="place-days"></div></div>
+        <div class="annual" id="annual" hidden><span>每年舒適天數</span><div class="big" id="place-days"></div></div>
       </div>
-      <p class="empty-state" id="town-prompt">點選地圖、排名或上方選單，查看鄉鎮的每月天數與氣候。</p>
+      <p class="empty-state" id="town-prompt">點選地圖、表格或上方選單，查看鄉鎮的每月天數與氣候。</p>
       <section class="chart-section" id="matching-section" hidden>
-        <h2>每月符合天數</h2>
-        <div class="chart-scroll" tabindex="0" role="region" aria-label="每月符合天數圖，可水平捲動"><svg class="chart" id="months" viewBox="0 0 720 270" role="img" aria-label="每月平均符合天數，縱軸固定為零至三十一天"></svg></div>
+        <h2>每月舒適天數</h2>
+        <div class="chart-scroll" role="region" aria-label="每月舒適天數圖"><svg class="chart" id="months" viewBox="0 0 720 270" role="img" aria-label="每月平均舒適天數，縱軸固定為零至三十一天"></svg></div>
       </section>
       <section class="chart-section" id="climate-section" hidden>
         <h2>氣溫與雨量</h2>
@@ -478,7 +473,7 @@
         <p class="hint" id="climate-message" role="status"></p>
         <div id="climate-content" hidden>
           <div class="chart-legend" aria-label="氣候圖圖例"><span><i class="swatch"></i>平均最高溫</span><span><i class="swatch low"></i>平均最低溫</span><span><i class="swatch rain"></i>平均月累積雨量</span></div>
-          <div class="chart-scroll" tabindex="0" role="region" aria-label="氣溫雨量圖，可水平捲動"><svg class="chart" id="climate-chart" viewBox="0 0 720 310" role="img" aria-label="各月平均最高溫、最低溫與累積雨量"></svg></div>
+          <div class="chart-scroll" role="region" aria-label="氣溫雨量圖"><svg class="chart" id="climate-chart" viewBox="0 0 720 310" role="img" aria-label="各月平均最高溫、最低溫與累積雨量"></svg></div>
           <details><summary>查看每月數據與有效年數</summary>
             <div class="table-scroll" tabindex="0" role="region" aria-label="每月數據表，可水平捲動"><table><caption class="sr-only">1991–2020 年各月氣候統計；只納入資料完整的年月。</caption><thead><tr><th scope="col">月份</th><th scope="col">最高溫 °C</th><th scope="col">最低溫 °C</th><th scope="col">雨量 毫米</th><th scope="col">有效年數（高／低／雨）</th></tr></thead><tbody id="climate-table"></tbody></table></div>
             <p class="hint">先計算各年月的平均氣溫與累積雨量，再平均相同月份。各項只納入每日資料完整的年月；缺值以「—」表示。</p>
@@ -487,13 +482,27 @@
       </section>
     </section>
   </main>
-  <section class="panel lists" aria-label="鄉鎮排名">
-    <div><h2>最多的十個鄉鎮</h2><ol id="top-list"></ol></div>
-    <div><h2>最少的十個鄉鎮</h2><ol id="bottom-list"></ol></div>
+  <section class="panel lists" aria-label="鄉鎮舒適天數">
+    <fieldset class="region-filters">
+      <legend class="sr-only">篩選表格分區</legend>
+      <label><input type="checkbox" name="region" value="北部" checked>北部</label>
+      <label><input type="checkbox" name="region" value="中部" checked>中部</label>
+      <label><input type="checkbox" name="region" value="南部" checked>南部</label>
+      <label><input type="checkbox" name="region" value="東部" checked>東部</label>
+      <label><input type="checkbox" name="region" value="離島" checked>離島</label>
+    </fieldset>
+    <div class="ranking-scroll" tabindex="0" role="region" aria-label="鄉鎮舒適天數表，可上下捲動">
+      <table class="ranking-table">
+        <caption class="sr-only">各鄉鎮每年平均舒適天數；點選欄位可排序，點選地點可查看詳情。</caption>
+        <thead><tr><th scope="col" id="sort-name" aria-sort="none"><button type="button" data-sort="name">地點<span aria-hidden="true" class="sort-mark"></span></button></th><th scope="col" id="sort-days" aria-sort="descending"><button type="button" data-sort="days">舒適天數<span aria-hidden="true" class="sort-mark"> ↓</span></button></th></tr></thead>
+        <tbody id="ranking-body"></tbody>
+      </table>
+    </div>
+    <p class="sr-only" id="ranking-status" role="status"></p>
   </section>
 </div>
 <footer>
-  <p>每年天數＝1991–2020 這 30 年裡符合的天數 ÷ 30。缺值不計入，也不用 0 填。</p>
+  <p>資料期間：1991–2020 年。每年天數＝這 30 年裡符合的天數 ÷ 30。缺值不計入，也不用 0 填。</p>
   <p>天氣底圖是 NASA POWER 的 MERRA-2，約 50 公里，1991–2020。鄉鎮代表點的高度來自 Open-Meteo 地形；氣溫依每上升 1 公里減 6.5°C、露點減 1.8°C，從粗網格修正到當地高度。雨量、風速與日照仍是粗網格的值，不隨高度改。降雨篩選與月累積雨量使用原始小數雨量；日照時數是估計：全天空輻射除以晴空輻射，再乘上當天的白晝時數。</p>
   <p>界線：內政部國土測繪中心鄉鎮市區界 TOWN_MOI_1140318，政府資料開放授權條款第 1 版，經 pdmaptw 簡化。東沙、太平島與釣魚臺距離太遠，沒有畫進這張圖；旗津、頭城的天氣用本島那一塊。這不是中央氣象署測站實測，也不是預報。</p>
 </footer>
@@ -510,6 +519,23 @@ const STOPS = [
   [365, [214, 70, 47]]
 ];
 const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const REGION_COUNTIES = {
+  北部: ['臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'],
+  中部: ['苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣'],
+  南部: ['嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣'],
+  東部: ['花蓮縣', '臺東縣'],
+  離島: ['澎湖縣', '金門縣', '連江縣']
+};
+const COUNTY_REGION = new Map(Object.entries(REGION_COUNTIES).flatMap(([region, counties]) => counties.map((county) => [county, region])));
+
+function rankTowns(rows, regions, key, direction) {
+  const sign = direction === 'ascending' ? 1 : -1;
+  return rows.filter((town) => regions.has(COUNTY_REGION.get(town.county))).sort((a, b) => {
+    const byName = a.name.localeCompare(b.name, 'zh-Hant');
+    const primary = key === 'name' ? byName : a.days - b.days;
+    return sign * primary || byName || a.code.localeCompare(b.code);
+  });
+}
 
 const $ = (id) => document.getElementById(id);
 const banner = $('banner');
@@ -527,10 +553,6 @@ function colorFor(days) {
   return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
 }
 
-function fahrenheit(celsius) {
-  return Math.round(celsius * 9 / 5 + 32);
-}
-
 function paintDual(lo, hi, root) {
   const min = Number(lo.min);
   const max = Number(lo.max);
@@ -539,6 +561,27 @@ function paintDual(lo, hi, root) {
   const fill = root.querySelector('.dual-fill');
   fill.style.left = `calc(11px + (100% - 22px) * ${a})`;
   fill.style.width = `calc((100% - 22px) * ${b - a})`;
+}
+
+function paintTemperature() {
+  const lo = $('tmax-lo'), hi = $('tmax-hi'), root = $('tmax-dual');
+  $('tmax-read').textContent = `${lo.value}~${hi.value}℃`;
+  lo.setAttribute('aria-valuetext', `${lo.value}°C`);
+  hi.setAttribute('aria-valuetext', `${hi.value}°C`);
+  paintDual(lo, hi, root);
+}
+
+function centeredTranslation(box, view, scale) {
+  return {
+    x: view.x + view.w / 2 - (box.x + box.width / 2) * scale,
+    y: view.y + view.h / 2 - (box.y + box.height / 2) * scale,
+  };
+}
+
+function cameraPosition(from, to, elapsed) {
+  const progress = Math.max(0, Math.min(1, elapsed / 350));
+  const eased = 1 - (1 - progress) ** 3;
+  return {x: from.x + (to.x - from.x) * eased, y: from.y + (to.y - from.y) * eased};
 }
 
 function keepRing(ring) {
@@ -604,25 +647,33 @@ function validateWeather(data, meta) {
   return data;
 }
 
-function matchingChart(series) {
-  const left = 58, right = 702, top = 42, bottom = 226;
+function matchingChart(series, width = 720) {
+  const compact = width < 400;
+  const left = compact ? 24 : 40, right = width - (compact ? 4 : 8), top = compact ? 62 : 42, bottom = 226;
   const step = (right - left) / 12;
+  const barWidth = Math.min(32, step * 0.7);
   const y = (value) => bottom - value / 31 * (bottom - top);
-  let markup = '<text class="axis-title" x="8" y="17">平均符合天數（天）</text>';
+  // 柱間距不足時，以最高柱上方兩列顯示讀值，避免相鄰文字重疊。
+  const sharedLabels = compact && step < 22.7;
+  const highestY = y(Math.max(0, ...series));
+  let markup = '<text class="axis-title" x="8" y="17">平均舒適天數（天）</text>';
   for (const tick of [0, 10, 20, 31]) {
     markup += `<line class="gridline" x1="${left}" x2="${right}" y1="${y(tick)}" y2="${y(tick)}"/><text x="${left - 10}" y="${y(tick) + 4}" text-anchor="end">${tick}</text>`;
   }
   markup += `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/>`;
   series.forEach((value, index) => {
     const x = left + (index + 0.5) * step;
-    markup += `<rect class="month-bar" x="${x - 16}" y="${y(value)}" width="32" height="${bottom - y(value)}" rx="2" fill="#3155BA"><title>${MONTHS[index]}：${value.toFixed(1)} 天</title></rect><text class="bar-value" x="${x}" y="${y(value) - 8}" text-anchor="middle">${value.toFixed(1)}</text><text x="${x}" y="${bottom + 18}" text-anchor="middle">${index + 1}</text>`;
+    const labelY = (sharedLabels ? highestY : y(value)) - 8 - (compact && index % 2 ? 18 : 0);
+    markup += `<rect class="month-bar" x="${x - barWidth / 2}" y="${y(value)}" width="${barWidth}" height="${bottom - y(value)}" rx="2" fill="#3155BA"><title>${MONTHS[index]}：${value.toFixed(1)} 天</title></rect><text class="bar-value" x="${x}" y="${labelY}" text-anchor="middle">${value.toFixed(1)}</text><text x="${x}" y="${bottom + 18}" text-anchor="middle">${index + 1}</text>`;
   });
-  return markup + '<text class="axis-title" x="380" y="265" text-anchor="middle">月份</text>';
+  return markup + `<text class="axis-title" x="${(left + right) / 2}" y="265" text-anchor="middle">月份</text>`;
 }
 
-function climateChart(monthly) {
-  const left = 58, right = 656, top = 48, bottom = 262;
+function climateChart(monthly, width = 720) {
+  const compact = width < 400;
+  const left = compact ? 28 : 40, right = width - (compact ? 42 : 46), top = 48, bottom = 262;
   const step = (right - left) / 12;
+  const barWidth = Math.min(28, step * 0.7);
   const temps = monthly.flatMap((month) => [month.tmax, month.tmin]).filter(Number.isFinite);
   const low = Math.floor(Math.min(0, ...temps) / 5) * 5;
   const high = Math.max(low + 10, Math.ceil(Math.max(30, ...temps) / 5) * 5);
@@ -631,7 +682,7 @@ function climateChart(monthly) {
   const tempY = (value) => bottom - (value - low) / (high - low) * (bottom - top);
   const rainY = (value) => bottom - value / rainMax * (bottom - top);
   const x = (index) => left + (index + 0.5) * step;
-  let markup = '<text class="axis-title" x="8" y="17">氣溫（°C）</text><text class="axis-title" x="712" y="17" text-anchor="end">平均月累積雨量（毫米）</text>';
+  let markup = `<text class="axis-title" x="8" y="17">氣溫（°C）</text><text class="axis-title" x="${width - 4}" y="17" text-anchor="end">平均月累積雨量（毫米）</text>`;
   for (let tick = low; tick <= high; tick += 5) {
     markup += `<line class="gridline" x1="${left}" x2="${right}" y1="${tempY(tick)}" y2="${tempY(tick)}"/><text x="${left - 10}" y="${tempY(tick) + 4}" text-anchor="end">${tick}</text>`;
   }
@@ -639,7 +690,7 @@ function climateChart(monthly) {
     markup += `<text x="${right + 10}" y="${rainY(tick) + 4}">${tick}</text>`;
   }
   monthly.forEach((month, index) => {
-    if (month.precip !== null) markup += `<rect x="${x(index) - 14}" y="${rainY(month.precip)}" width="28" height="${bottom - rainY(month.precip)}" rx="2" fill="#BADEEF"><title>${MONTHS[index]}平均月累積雨量 ${month.precip.toFixed(1)} 毫米</title></rect>`;
+    if (month.precip !== null) markup += `<rect x="${x(index) - barWidth / 2}" y="${rainY(month.precip)}" width="${barWidth}" height="${bottom - rainY(month.precip)}" rx="2" fill="#BADEEF"><title>${MONTHS[index]}平均月累積雨量 ${month.precip.toFixed(1)} 毫米</title></rect>`;
     markup += `<text x="${x(index)}" y="${bottom + 19}" text-anchor="middle">${index + 1}</text>`;
   });
   for (const [key, color, dash] of [['tmax', '#E85F59', ''], ['tmin', '#2879C5', '6 4']]) {
@@ -655,7 +706,7 @@ function climateChart(monthly) {
       if (month[key] !== null) markup += `<circle cx="${x(index)}" cy="${tempY(month[key])}" r="3" fill="${color}" stroke="white"><title>${MONTHS[index]}${key === 'tmax' ? '平均最高溫' : '平均最低溫'} ${month[key].toFixed(1)}°C</title></circle>`;
     });
   }
-  return markup + `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/><text class="axis-title" x="357" y="305" text-anchor="middle">月份</text>`;
+  return markup + `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/><text class="axis-title" x="${(left + right) / 2}" y="305" text-anchor="middle">月份</text>`;
 }
 
 async function load() {
@@ -714,18 +765,6 @@ function boot(meta, geo, buffer) {
   const viewport = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   svg.append(viewport);
   const paths = new Map();
-  const mainBox = {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity};
-  const ringOnMain = (ring) => {
-    let lon = 0;
-    let lat = 0;
-    for (const point of ring) {
-      lon += point[0];
-      lat += point[1];
-    }
-    lon /= ring.length;
-    lat /= ring.length;
-    return lon >= 120 && lon <= 122.15 && lat >= 21.85 && lat <= 25.4;
-  };
   for (const town of meta.towns) {
     const feature = geoByCode.get(town.code);
     const polygons = feature.geometry.type === 'MultiPolygon'
@@ -734,17 +773,10 @@ function boot(meta, geo, buffer) {
     let d = '';
     for (const rings of polygons) {
       if (!keepRing(rings[0])) continue;
-      const onMain = ringOnMain(rings[0]);
       for (const ring of rings) {
         ring.forEach((point, i) => {
           const [x, y] = project(point[0], point[1]);
           d += `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
-          if (onMain) {
-            mainBox.minX = Math.min(mainBox.minX, x);
-            mainBox.minY = Math.min(mainBox.minY, y);
-            mainBox.maxX = Math.max(mainBox.maxX, x);
-            mainBox.maxY = Math.max(mainBox.maxY, y);
-          }
         });
         d += 'Z';
       }
@@ -765,6 +797,8 @@ function boot(meta, geo, buffer) {
   let tx = 0;
   let ty = 0;
   let scale = 1;
+  let cameraFrame = 0;
+  const cancelCamera = () => { cancelAnimationFrame(cameraFrame); cameraFrame = 0; };
   const applyFrame = () => {
     svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
   };
@@ -773,28 +807,35 @@ function boot(meta, geo, buffer) {
     viewport.setAttribute('transform', `translate(${tx} ${ty}) scale(${scale})`);
   };
   const zoomAt = (factor, cx, cy) => {
+    cancelCamera();
     const next = Math.min(14, Math.max(1, scale * factor));
     tx = cx - (cx - tx) * (next / scale);
     ty = cy - (cy - ty) * (next / scale);
     scale = next;
     applyView();
   };
-  const fitBox = (box, pad = 0.08) => {
-    const width = Math.max(8, box.maxX - box.minX);
-    const height = Math.max(8, box.maxY - box.minY);
-    view = {
-      x: box.minX - width * pad,
-      y: box.minY - height * pad,
-      w: width * (1 + pad * 2),
-      h: height * (1 + pad * 2)
+  const centerTown = (path) => {
+    cancelCamera();
+    const target = centeredTranslation(path.getBBox(), view, scale);
+    const from = {x: tx, y: ty};
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      tx = target.x;
+      ty = target.y;
+      applyView();
+      return;
+    }
+    const start = performance.now();
+    const move = (now) => {
+      const position = cameraPosition(from, target, now - start);
+      tx = position.x;
+      ty = position.y;
+      applyView();
+      cameraFrame = now - start < 350 ? requestAnimationFrame(move) : 0;
     };
-    tx = 0;
-    ty = 0;
-    scale = 1;
-    applyFrame();
-    applyView();
+    cameraFrame = requestAnimationFrame(move);
   };
   const showAll = () => {
+    cancelCamera();
     view = {x: 0, y: 0, w: vbW, h: vbH};
     tx = 0;
     ty = 0;
@@ -819,6 +860,11 @@ function boot(meta, geo, buffer) {
   let climateByTown = new Map();
   let lastClimateTown = null;
   let weatherLoading = false;
+  let rankingRows = [];
+  let sortKey = 'days';
+  let sortDirection = 'descending';
+  const regionInputs = [...document.querySelectorAll('input[name="region"]')];
+  const rankingItems = new Map();
 
   function readNumber(input) {
     return Number(input.value);
@@ -870,10 +916,7 @@ function boot(meta, geo, buffer) {
   }
 
   function paintReads() {
-    const lo = readNumber(tmaxLo);
-    const hi = readNumber(tmaxHi);
-    $('tmax-read').textContent = `${lo}–${hi}°C`;
-    $('tmax-f').textContent = `日最高溫與日最低溫都要落在這個區間。華氏約 ${fahrenheit(lo)}–${fahrenheit(hi)}°F。`;
+    paintTemperature();
     $('sun-read').textContent = `${readNumber($('sun-min'))} 小時`;
     $('wind-read').textContent = `${readNumber($('wind-max'))} km/h`;
     const rainLo = readNumber($('rain-lo'));
@@ -884,28 +927,87 @@ function boot(meta, geo, buffer) {
     const rainMode = readControls().rainMode;
     $('rain-note').hidden = rainMode === 'wet';
     $('rain-note').textContent = rainMode === 'dry' ? '日雨量小於 1 毫米。' : '不限制降雨。';
-    paintDual(tmaxLo, tmaxHi, $('tmax-dual'));
     paintDual($('rain-lo'), $('rain-hi'), $('rain-dual'));
   }
 
-  function fillList(list, rows) {
-    list.replaceChildren();
+  function renderRanking() {
+    const regions = new Set(regionInputs.filter((input) => input.checked).map((input) => input.value));
+    const rows = rankTowns(rankingRows, regions, sortKey, sortDirection);
+    const body = $('ranking-body');
+    const items = [];
     for (const row of rows) {
-      const item = document.createElement('li');
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'rank';
+      let item = rankingItems.get(row.code);
+      if (!item) {
+        item = document.createElement('tr');
+        const location = document.createElement('td');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'rank';
+        button.textContent = row.name;
+        button.addEventListener('click', () => choose(row.code));
+        location.append(button);
+        const days = document.createElement('td');
+        days.className = 'days';
+        item.append(location, days);
+        rankingItems.set(row.code, item);
+      }
+      item.classList.toggle('is-selected', row.code === selected);
+      const button = item.querySelector('button');
       if (row.code === selected) button.setAttribute('aria-current', 'true');
-      const name = document.createElement('span');
-      name.textContent = row.name;
-      const days = document.createElement('span');
-      days.className = 'days';
-      days.textContent = row.days.toFixed(1);
-      button.append(name, days);
-      button.addEventListener('click', () => choose(row.code));
-      item.append(button);
-      list.append(item);
+      else button.removeAttribute('aria-current');
+      item.lastElementChild.textContent = row.days.toFixed(1);
+      items.push(item);
     }
+    if (items.length !== body.children.length || items.some((item, index) => body.children[index] !== item)) {
+      body.replaceChildren(...items);
+    }
+    if (!rows.length) {
+      const item = document.createElement('tr');
+      const cell = document.createElement('td');
+      cell.colSpan = 2;
+      cell.className = 'ranking-empty';
+      cell.textContent = '請至少勾選一個分區。';
+      item.append(cell);
+      body.replaceChildren(item);
+    }
+    for (const key of ['name', 'days']) {
+      const heading = $(`sort-${key}`);
+      heading.setAttribute('aria-sort', key === sortKey ? sortDirection : 'none');
+      heading.querySelector('.sort-mark').textContent = key === sortKey ? (sortDirection === 'ascending' ? ' ↑' : ' ↓') : '';
+    }
+    $('ranking-status').textContent = `顯示 ${rows.length} 個鄉鎮，依${sortKey === 'days' ? '舒適天數' : '地點'}${sortDirection === 'ascending' ? '升序' : '降序'}排列。`;
+  }
+
+  for (const input of regionInputs) input.addEventListener('change', () => {
+    renderRanking();
+    document.querySelector('.ranking-scroll').scrollTop = 0;
+  });
+  for (const button of document.querySelectorAll('[data-sort]')) button.addEventListener('click', () => {
+    const key = button.dataset.sort;
+    sortDirection = key === sortKey ? (sortDirection === 'ascending' ? 'descending' : 'ascending') : (key === 'days' ? 'descending' : 'ascending');
+    sortKey = key;
+    renderRanking();
+    document.querySelector('.ranking-scroll').scrollTop = 0;
+  });
+
+  function drawChart(id, height, draw) {
+    const chart = $(id);
+    const width = chart.parentElement.getBoundingClientRect().width;
+    if (!width) return;
+    chart.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    chart.innerHTML = draw(width);
+    const scroll = chart.parentElement;
+    const overflows = chart.scrollWidth > scroll.clientWidth;
+    scroll.tabIndex = overflows ? 0 : -1;
+    scroll.setAttribute('aria-label', `${id === 'months' ? '每月舒適天數圖' : '氣溫雨量圖'}${overflows ? '，可水平捲動' : ''}`);
+  }
+
+  function redrawCharts() {
+    const town = townByCode.get(selected);
+    if (!town || !monthScores[town.cell]) return;
+    drawChart('months', 270, (width) => matchingChart(monthScores[town.cell], width));
+    const climate = climateByTown.get(town.code);
+    if (climate) drawChart('climate-chart', 310, (width) => climateChart(climate.monthly, width));
   }
 
   function showTown() {
@@ -927,8 +1029,8 @@ function boot(meta, geo, buffer) {
     $('place-days').textContent = `${days.toFixed(1)} 天`;
     select.value = town.code;
     const series = monthScores[town.cell];
-    $('months').innerHTML = matchingChart(series);
-    $('months').setAttribute('aria-label', `每月平均符合天數，縱軸固定零至三十一天。${series.map((value, index) => `${MONTHS[index]} ${value.toFixed(1)} 天`).join('；')}`);
+    drawChart('months', 270, (width) => matchingChart(series, width));
+    $('months').setAttribute('aria-label', `每月平均舒適天數，縱軸固定零至三十一天。${series.map((value, index) => `${MONTHS[index]} ${value.toFixed(1)} 天`).join('；')}`);
     if (lastClimateTown === town.code) return;
     const climate = climateByTown.get(town.code);
     $('climate-content').hidden = !climate;
@@ -938,7 +1040,7 @@ function boot(meta, geo, buffer) {
       return;
     }
     lastClimateTown = town.code;
-    $('climate-chart').innerHTML = climateChart(climate.monthly);
+    drawChart('climate-chart', 310, (width) => climateChart(climate.monthly, width));
     const number = (value) => value === null ? '—' : value.toFixed(1);
     $('climate-table').innerHTML = climate.monthly.map((month, index) => `<tr><th scope="row">${index + 1}月</th><td>${number(month.tmax)}</td><td>${number(month.tmin)}</td><td>${number(month.precip)}</td><td>${month.validYears.tmax}／${month.validYears.tmin}／${month.validYears.precip}</td></tr>`).join('');
   }
@@ -959,8 +1061,8 @@ function boot(meta, geo, buffer) {
     const mid = values.length === 0 ? null : values.length % 2
       ? values[(values.length - 1) / 2]
       : (values[values.length / 2 - 1] + values[values.length / 2]) / 2;
-    fillList($('top-list'), ranked.slice(0, 10));
-    fillList($('bottom-list'), ranked.slice(-10).reverse());
+    rankingRows = ranked;
+    renderRanking();
     for (const path of paths.values()) path.classList.toggle('is-selected', path.dataset.code === selected);
     showTown();
     if (announce) {
@@ -976,14 +1078,17 @@ function boot(meta, geo, buffer) {
   }
 
   function choose(code) {
+    cancelCamera();
     selected = code;
-    showAll();
     render(false);
+    const path = paths.get(code);
+    if (path) centerTown(path);
   }
 
   function bindPair(lo, hi) {
     const onInput = (event) => {
       clampRange(lo, hi, event.target);
+      if (lo === tmaxLo) paintTemperature();
       event.target.style.zIndex = '2';
       (event.target === lo ? hi : lo).style.zIndex = '1';
       schedule(false);
@@ -1045,6 +1150,7 @@ function boot(meta, geo, buffer) {
   let drag = null;
   svg.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
+    cancelCamera();
     svg.setPointerCapture(event.pointerId);
     const point = mapPoint(event.clientX, event.clientY);
     drag = {
@@ -1100,14 +1206,21 @@ function boot(meta, geo, buffer) {
   });
   $('zoom-in').addEventListener('click', () => zoomAt(1.25, view.x + view.w / 2, view.y + view.h / 2));
   $('zoom-out').addEventListener('click', () => zoomAt(1 / 1.25, view.x + view.w / 2, view.y + view.h / 2));
-  $('view-all').addEventListener('click', showAll);
-  $('view-main').addEventListener('click', () => fitBox(mainBox, 0.04));
+  $('view-home').addEventListener('click', showAll);
 
   const gradient = STOPS.map(([stop, rgb]) => `rgb(${rgb.join(',')}) ${stop / 365 * 100}%`).join(', ');
   $('legend-bar').style.background = `linear-gradient(90deg, ${gradient})`;
   banner.hidden = true;
   syncModes();
   paintReads();
+  let resizeFrame = 0;
+  const resizeObserver = new ResizeObserver(() => {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => { paintTemperature(); redrawCharts(); });
+  });
+  resizeObserver.observe($('tmax-dual'));
+  resizeObserver.observe($('months').parentElement);
+  resizeObserver.observe($('climate-chart').parentElement);
   refreshWeather();
 }
 
