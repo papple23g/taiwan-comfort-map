@@ -2101,5 +2101,6 @@ function boot(meta, geo, buffer) {
 load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError);
 $('main-retry').addEventListener('click', () => load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError));
 </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"dc79f72e90aa4f83a5d4f5d241e0681b"}'></script>
 </body>
 </html>

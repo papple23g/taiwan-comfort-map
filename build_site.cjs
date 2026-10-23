@@ -37,10 +37,10 @@ function buildSite() {
   X-Content-Type-Options: nosniff
 
 /
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
 
 /index.html
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
 
 ${DATA_NAMES.map((name) => `/${base}${name}\n  Cache-Control: public, max-age=31536000, immutable\n`).join('\n')}
 

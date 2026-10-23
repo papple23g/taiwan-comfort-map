@@ -637,6 +637,9 @@ test('deployment output is isolated, versioned, byte-identical and has gzip-safe
   assert.deepEqual(fs.readdirSync(path.join(result.output, 'data')), [result.version]);
   const headers = fs.readFileSync(path.join(result.output, '_headers'), 'utf8');
   assert.match(headers, /max-age=0, must-revalidate/);
+  for (const route of ['/', '/index.html']) {
+    assert.ok(headers.includes(`${route}\n  Cache-Control: public, max-age=0, must-revalidate, no-transform`), 'HTML must prevent automatic injection of a second analytics beacon');
+  }
   assert.match(headers, /max-age=31536000, immutable/);
   assert.match(headers, /Content-Type: application\/gzip/);
   assert.doesNotMatch(headers, /Content-Encoding:/i);
