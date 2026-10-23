@@ -17,7 +17,16 @@ python -m http.server 8766 --bind 127.0.0.1 --directory dist
 
 ## Cloudflare Workers Static Assets
 
-先執行建置，部署時使用根目錄的 `wrangler.jsonc`，其 `assets.directory` 指向 `dist`。網站為純靜態資產，不需要 Worker 程式、氣候資料重建、API 金鑰或使用者登入。正式部署前確認 Cloudflare 帳號、Worker 名稱與網域，再依部署指示執行 Wrangler；本機建置不會發布。
+先執行建置，部署時使用根目錄的 `wrangler.jsonc`，其 `assets.directory` 指向 `dist`。網站為純靜態資產，不需要 Worker 程式、氣候資料重建、API 金鑰或使用者登入。本機建置不會發布。
+
+部署設定使用 Worker `taiwan-comfort-map`，並將 `papple23g.com` 綁為自訂網域。執行部署的帳號必須具有該網域的有效 Cloudflare zone；Wrangler 會建立對應 DNS 與 HTTPS 憑證。
+
+```powershell
+npm exec --yes --package=wrangler -- wrangler login
+npm exec --yes --package=wrangler -- wrangler whoami
+node build_site.cjs
+npm exec --yes --package=wrangler -- wrangler deploy
+```
 
 以 Wrangler 本機環境檢查靜態資產與 `_headers`：
 
