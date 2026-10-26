@@ -30,7 +30,7 @@ def cached_inputs(tmp_path: Path) -> tuple[Path, Path]:
     data_dir, cache_dir = tmp_path / 'data', tmp_path / 'power'
     data_dir.mkdir()
     cache_dir.mkdir()
-    dates = builder.expected_dates()
+    dates = builder.expected_dates(builder.START, date(2020, 12, 31))
     day_count = len(dates)
     meta = {
         'start': '1991-01-01', 'end': '2020-12-31',
@@ -205,3 +205,56 @@ def test_cli_cache_only_never_runs_main(
     monkeypatch.setattr(builder, 'build_weather_details_from_cache', build_fixture)
     builder.run_cli(['--weather-details-from-cache'])
     assert (data_dir / 'weather-details.json').is_file()
+
+
+@pytest.mark.parametrize('invalid_rain', [False, True])
+def test_append_preserves_old_planes_and_only_replaces_outputs_after_validation(
+    cached_inputs: tuple[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_rain: bool,
+) -> None:
+    data_dir, cache_dir = cached_inputs
+    previous = {name: (data_dir / name).read_bytes() for name in ('meta.json', 'climate.bin')}
+    old_days = 10958
+
+    def recent_grid(
+        lat: float,
+        lon: float,
+        directory: Path,
+        ranges: tuple[tuple[str, str], ...],
+    ) -> tuple[float, dict[str, dict[str, float]]]:
+        assert (lat, lon, directory, ranges) == (23.0, 120.625, cache_dir, (('20210101', '20251231'),))
+        days = builder.expected_dates(date(2021, 1, 1), date(2025, 12, 31))
+        values = dict(zip(builder.POWER_PARAMS, [32.0, 22.0, 12.0, 0.4, 4.0, 6.0, 3.0]))
+        fields = {name: {when.strftime('%Y%m%d'): value for when in days} for name, value in values.items()}
+        payload = {
+            'geometry': {'coordinates': [lon, lat, 0]},
+            'header': {'start': '20210101', 'end': '20251231'},
+            'parameters': {'PRECTOTCORR': {'units': 'mm/day'}},
+            'properties': {'parameter': fields},
+        }
+        if invalid_rain:
+            payload['properties']['parameter']['PRECTOTCORR'] = {}
+        (directory / '23.0000_120.6250_20210101.json').write_text(json.dumps(payload), encoding='utf-8')
+        return 0.0, fields
+
+    monkeypatch.setattr(builder, 'fetch_power_cell', recent_grid)
+    if invalid_rain:
+        with pytest.raises(ValueError):
+            builder.append_recent_years(data_dir, cache_dir)
+        assert {name: (data_dir / name).read_bytes() for name in previous} == previous
+        assert not (data_dir / 'weather-details.json').exists()
+        return
+    builder.append_recent_years(data_dir, cache_dir)
+    meta = json.loads((data_dir / 'meta.json').read_text(encoding='utf-8'))
+    binary = (data_dir / 'climate.bin').read_bytes()
+    assert (meta['days'], meta['years'], meta['end']) == (12784, 35, '2025-12-31')
+    for variable in range(6):
+        old_start = 16 + variable * old_days
+        new_start = 16 + variable * meta['days']
+        assert binary[new_start:new_start + old_days] == previous['climate.bin'][old_start:old_start + old_days]
+    assert binary[16 + old_days] == builder.enc_temp(19.0)
+    assert binary[16 + meta['days'] + old_days] == builder.enc_temp(9.0)
+    assert json.loads((data_dir / 'weather-details.json').read_text(encoding='utf-8'))['grids'][0]['rain'][old_days] == 0.4
+    builder.append_recent_years(data_dir, cache_dir)
+    assert (data_dir / 'climate.bin').read_bytes() == binary

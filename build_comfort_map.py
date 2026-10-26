@@ -1,4 +1,4 @@
-"""建置台灣鄉鎮代表點的 1991–2020 日資料與月氣候統計。
+"""建置台灣鄉鎮代表點的 1991–2025 日資料與月氣候統計。
 
 NASA POWER 的 MERRA-2（約 0.5°）搭配 Open-Meteo 地形高度，
 將氣溫與露點修正到鄉鎮代表點；雨量、風速與估計日照留在粗網格。
@@ -14,6 +14,7 @@ import math
 import os
 import shutil
 import struct
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -30,8 +31,8 @@ GEOJSON_URL = (
     'https://github.com/plotdb/pdmaptw/releases/download/v2.4.0/town-2025-03-18.geojson'
 )
 START = date(1991, 1, 1)
-END = date(2020, 12, 31)
-YEARS = 30
+END = date(2025, 12, 31)
+YEARS = END.year - START.year + 1
 # 本島、澎湖、金門、馬祖。排除旗津所轄東沙／太平島，以及頭城所轄釣魚臺。
 NEAR_LON = (118.0, 122.35)
 NEAR_LAT = (21.8, 26.55)
@@ -41,6 +42,7 @@ RANGES = (
     ('19910101', '20001231'),
     ('20010101', '20101231'),
     ('20110101', '20201231'),
+    ('20210101', '20251231'),
 )
 POWER_PARAMS = (
     'T2M_MAX',
@@ -83,10 +85,10 @@ class WeatherDetails(TypedDict):
     towns: list[TownWeather]
 
 
-def expected_dates() -> list[date]:
+def expected_dates(start: date = START, end: date = END) -> list[date]:
     days: list[date] = []
-    cursor = START
-    while cursor <= END:
+    cursor = start
+    while cursor <= end:
         days.append(cursor)
         cursor += timedelta(days=1)
     return days
@@ -281,10 +283,15 @@ def fetch_elevations(points: list[tuple[float, float]]) -> list[float]:
     return found
 
 
-def fetch_power_cell(lat: float, lon: float, cache_dir: Path) -> tuple[float, dict[str, dict[str, float]]]:
+def fetch_power_cell(
+    lat: float,
+    lon: float,
+    cache_dir: Path,
+    ranges: tuple[tuple[str, str], ...] = RANGES,
+) -> tuple[float, dict[str, dict[str, float]]]:
     merged = {name: {} for name in POWER_PARAMS}
     cell_elev = 0.0
-    for start, end in RANGES:
+    for start, end in ranges:
         path = cache_dir / f'{lat:.4f}_{lon:.4f}_{start}.json'
         if path.exists():
             try:
@@ -307,11 +314,46 @@ def fetch_power_cell(lat: float, lon: float, cache_dir: Path) -> tuple[float, di
             payload = request_json('https://power.larc.nasa.gov/api/temporal/daily/point?' + query)
             path.write_text(json.dumps(payload), encoding='utf-8')
             time.sleep(0.3)
+        validate_power_payload(payload, lat, lon, start, end)
         cell_elev = float(payload['geometry']['coordinates'][2])
         parameter = payload['properties']['parameter']
         for name in POWER_PARAMS:
             merged[name].update(parameter[name])
     return cell_elev, merged
+
+
+def validate_power_payload(
+    payload: dict,
+    lat: float,
+    lon: float,
+    start: str,
+    end: str,
+) -> None:
+    dates = expected_dates(date.fromisoformat(start), date.fromisoformat(end))
+    expected_keys = {when.strftime('%Y%m%d') for when in dates}
+    try:
+        coordinates = payload['geometry']['coordinates']
+        header = payload['header']
+        fields = payload['properties']['parameter']
+        if coordinates[:2] != [lon, lat] or not math.isfinite(coordinates[2]):
+            raise ValueError('座標不符')
+        if str(header['start']) != start or str(header['end']) != end or header['time_standard'] != 'LST':
+            raise ValueError('期間或時間標準不符')
+        for name in POWER_PARAMS:
+            series = fields[name]
+            if set(series) != expected_keys:
+                raise ValueError(f'{name} 日期缺漏或超出期間')
+            if any(
+                not isinstance(value, (int, float)) or isinstance(value, bool)
+                or not math.isfinite(value)
+                or (name in POWER_PARAMS[3:] and -900 < value < 0)
+                for value in series.values()
+            ):
+                raise ValueError(f'{name} 數值無效')
+        if payload['parameters']['PRECTOTCORR']['units'] != 'mm/day':
+            raise ValueError('雨量單位不符')
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        raise ValueError(f'POWER 網格 {lat}, {lon} 的 {start}–{end} 資料無效：{error}') from error
 
 
 def sunshine_seconds(allsky: float | None, clearsky: float | None, lat: float, when: date) -> float | None:
@@ -378,18 +420,24 @@ def read_json_object(path: Path) -> dict:
 
 def validate_weather_inputs(data_dir: Path) -> tuple[dict, bytes, list[date]]:
     meta = read_json_object(data_dir / 'meta.json')
-    dates = expected_dates()
+    try:
+        end = date.fromisoformat(meta['end'])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError('meta.json 的結束日期無效') from error
+    if end < START or end > END or (end.month, end.day) != (12, 31):
+        raise ValueError('meta.json 必須使用完整曆年，且不得超出資料期間')
+    dates = expected_dates(START, end)
     expected = {
         'start': START.isoformat(),
-        'end': END.isoformat(),
+        'end': end.isoformat(),
         'days': len(dates),
-        'years': YEARS,
+        'years': end.year - START.year + 1,
         'months': [when.month for when in dates],
         'variables': ['tmax', 'tmin', 'dewpoint', 'precip', 'sunshine', 'wind'],
     }
     for name, value in expected.items():
         if meta.get(name) != value:
-            raise ValueError(f'meta.json 的 {name} 與 1991–2020 資料格式不符')
+            raise ValueError(f'meta.json 的 {name} 與資料期間或格式不符')
     cells, towns = meta.get('cells'), meta.get('towns')
     if not isinstance(cells, list) or not cells:
         raise ValueError('meta.json 缺少 cells')
@@ -435,6 +483,9 @@ def read_cached_grid_rain(
     rain_by_date: dict[str, float | None] = {}
     date_keys = [when.strftime('%Y%m%d') for when in dates]
     for start, end in RANGES:
+        expected_keys = {key for key in date_keys if start <= key <= end}
+        if not expected_keys:
+            continue
         path = cache_dir / f'{lat:.4f}_{lon:.4f}_{start}.json'
         payload = read_json_object(path)
         try:
@@ -454,7 +505,6 @@ def read_cached_grid_rain(
             or units != 'mm/day'
         ):
             raise ValueError(f'POWER cache 座標、期間或雨量單位不符：{path}')
-        expected_keys = {key for key in date_keys if start <= key <= end}
         if not isinstance(raw_rain, dict) or set(raw_rain) != expected_keys:
             raise ValueError(f'POWER cache 日期缺漏或超出期間：{path}')
         for key, value in raw_rain.items():
@@ -549,6 +599,58 @@ def build_weather_details_from_cache(
     destination = data_dir / 'weather-details.json'
     destination.write_text(serialized, encoding='utf-8')
     return destination
+
+
+def append_recent_years(
+    data_dir: Path = DATA,
+    cache_dir: Path = CACHE / 'power',
+) -> None:
+    meta, climate, old_dates = validate_weather_inputs(data_dir)
+    previous_end = old_dates[-1]
+    if previous_end == END:
+        print(f'資料已涵蓋至 {END}，無須追加', flush=True)
+        return
+    ranges = tuple((start, end) for start, end in RANGES if start > previous_end.strftime('%Y%m%d'))
+    if not ranges or date.fromisoformat(ranges[0][0]) != previous_end + timedelta(days=1):
+        raise ValueError('既有資料結束日必須與下載區間銜接')
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    grids = sorted({snap_power(cell['lat'], cell['lon']) for cell in meta['cells']})
+
+    def download(grid: tuple[float, float]) -> tuple[tuple[float, float], tuple[float, dict]]:
+        return grid, fetch_power_cell(grid[0], grid[1], cache_dir, ranges)
+
+    downloaded = {}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(download, grid) for grid in grids]
+        for future in as_completed(futures):
+            grid, payload = future.result()
+            downloaded[grid] = payload
+            print(f'已取得追加資料 {len(downloaded)}/{len(grids)}', flush=True)
+    new_dates = expected_dates(previous_end + timedelta(days=1), END)
+    old_count, new_count, cell_count = len(old_dates), len(new_dates), len(meta['cells'])
+    day_count = old_count + new_count
+    output = bytearray(16 + cell_count * day_count * 6)
+    output[:16] = climate[:16]
+    struct.pack_into('<H', output, 8, day_count)
+    for cell_index, cell in enumerate(meta['cells']):
+        power_elev, fields = downloaded[snap_power(cell['lat'], cell['lon'])]
+        packed = pack_town(fields, new_dates, power_elev, cell['elev'], cell['lat'])
+        for variable in range(6):
+            old_start = 16 + (variable * cell_count + cell_index) * old_count
+            new_start = 16 + (variable * cell_count + cell_index) * day_count
+            output[new_start:new_start + old_count] = climate[old_start:old_start + old_count]
+            output[new_start + old_count:new_start + day_count] = packed[variable * new_count:(variable + 1) * new_count]
+    meta.update(end=END.isoformat(), days=day_count, years=YEARS,
+                months=meta['months'] + [when.month for when in new_dates])
+    # 三份資料全部建置與驗證成功後才替換，既有日期的二進位值逐段保留。
+    with tempfile.TemporaryDirectory(prefix='comfort-years-') as directory:
+        staging = Path(directory)
+        (staging / 'meta.json').write_text(json.dumps(meta, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+        (staging / 'climate.bin').write_bytes(output)
+        build_weather_details_from_cache(staging, cache_dir)
+        for name in ('meta.json', 'climate.bin', 'weather-details.json'):
+            shutil.copyfile(staging / name, data_dir / name)
+    print(f'已追加至 {END}，共 {YEARS} 年、{day_count} 天', flush=True)
 
 
 def main() -> None:
@@ -670,12 +772,21 @@ def main() -> None:
 def run_cli(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        '--append-recent-years',
+        action='store_true',
+        help='保留既有日資料與鄉鎮代表點，追加至 2025 年並重建月氣候統計',
+    )
+    parser.add_argument(
         '--weather-details-from-cache',
         action='store_true',
         help='只讀既有 POWER cache 與地圖資料，產生 weather-details.json；不下載或重建原資料',
     )
     args = parser.parse_args(argv)
-    if args.weather_details_from_cache:
+    if args.append_recent_years and args.weather_details_from_cache:
+        parser.error('追加資料與僅建置月氣候統計不可同時使用')
+    if args.append_recent_years:
+        append_recent_years()
+    elif args.weather_details_from_cache:
         try:
             output = build_weather_details_from_cache()
         except (ValueError, OSError) as error:

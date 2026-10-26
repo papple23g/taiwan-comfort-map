@@ -1,0 +1,78 @@
+{
+  "cases": [
+    {
+      "tempLo": 20,
+      "sunMin": 6,
+      "rainMode": "dry",
+      "useWind": false
+    },
+    {
+      "tempLo": 21,
+      "sunMin": 6,
+      "rainMode": "dry",
+      "useWind": false
+    },
+    {
+      "tempLo": 22,
+      "sunMin": 6,
+      "rainMode": "dry",
+      "useWind": false
+    },
+    {
+      "tempLo": 20,
+      "sunMin": 5,
+      "rainMode": "dry",
+      "useWind": false
+    },
+    {
+      "tempLo": 20,
+      "sunMin": 6,
+      "rainMode": "any",
+      "useWind": false
+    },
+    {
+      "tempLo": 20,
+      "sunMin": 6,
+      "rainMode": "dry",
+      "useWind": true
+    },
+    {
+      "tempLo": 20,
+      "sunMin": 6,
+      "rainMode": "wet",
+      "useWind": false
+    }
+  ],
+  "milliseconds": {
+    "before": [
+      1662,
+      1451.1,
+      1718.8,
+      1469.9,
+      1497.4,
+      1564.6,
+      1415.6
+    ],
+    "after": [
+      316.1,
+      18.1,
+      15.9,
+      18.8,
+      9.2,
+      18.7,
+      39.2
+    ],
+    "fallback": [
+      676.6,
+      47,
+      36.1,
+      56.2,
+      80.1,
+      44.1,
+      79.2
+    ]
+  },
+  "indexBytes": 16156672,
+  "environment": "Windows Node.js v24.12.0",
+  "firstCase": "cold initialization; subsequent cases reuse index"
+}

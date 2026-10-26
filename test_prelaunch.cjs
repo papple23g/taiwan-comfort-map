@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 const {buildSite} = require('./build_site.cjs');
+const ClimateCompute = require('./climate-compute.js');
 
 const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -19,12 +20,12 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 
 function scope(extra = {}) {
   const context = vm.createContext({URL, URLSearchParams, Response, DecompressionStream, Event, Blob, File,
-    console: {warn() {}}, document: {getElementById: () => ({})}, ...extra});
+    console: {warn() {}}, document: {getElementById: () => ({})}, ClimateCompute, setTimeout, clearTimeout, ...extra});
   vm.runInContext(definitions, context);
   return context;
 }
 
-test('version 1 preserves both temperature modes, decimals, inactive ranges, empty regions and sorting', () => {
+test('version 2 preserves the calendar period, both temperature modes, decimals, inactive ranges, empty regions and sorting', () => {
   const api = scope(), state = api.defaultShareState();
   state.town = meta.towns[12].code;
   state.temperature = {mode: 'advanced', basic: {lo: 19.5, hi: 30}, advanced: {lo: -12.3456789, hi: 42.71234567}};
@@ -35,7 +36,7 @@ test('version 1 preserves both temperature modes, decimals, inactive ranges, emp
   state.sort = 'name';
   state.direction = 'ascending';
   const hash = api.encodeShareState(state), decoded = api.decodeShareState(hash, townCodes);
-  assert.match(hash, /^#v=1&/);
+  assert.match(hash, /^#v=2&/);
   assert.equal(decoded.shared, true);
   assert.equal(decoded.invalid, false);
   assert.deepEqual(plain(decoded.state), plain(state));
@@ -51,7 +52,7 @@ test('version 1 preserves both temperature modes, decimals, inactive ranges, emp
 test('invalid or unsupported fragments fall back entirely, with no executable URL content', () => {
   const api = scope(), defaults = api.defaultShareState(), valid = api.encodeShareState(defaults);
   const bad = ['#v=2', '#v=1', '#<script>alert(1)</script>', '#%XX', valid + '&v=1', valid + '&unknown=1'];
-  for (const [key, value] of Object.entries({v: '2', town: 'javascript:alert(1)', temperature: 'other',
+  for (const [key, value] of Object.entries({v: '3', period: '2024-2026', town: 'javascript:alert(1)', temperature: 'other',
     basic: '14,28', advanced: 'Infinity,28', rain: 'none', rainRange: '3,2', sunRange: '6.1,12',
     windRange: '5,71', regions: '北部,北部', sort: '__proto__', direction: 'sideways'})) {
     const params = new URLSearchParams(valid.slice(1));
@@ -65,6 +66,57 @@ test('invalid or unsupported fragments fall back entirely, with no executable UR
     assert.deepEqual(plain(decoded.state), plain(defaults));
   }
   assert.equal(api.decodeShareState('', townCodes).invalid, false);
+});
+
+test('version 1 links retain the 1991–2020 baseline while new links freeze absolute years', () => {
+  const api = scope(), state = api.defaultShareState();
+  const params = new URLSearchParams(api.encodeShareState(state).slice(1));
+  params.set('v', '1');
+  params.delete('period');
+  const decoded = api.decodeShareState(`#${params}`, townCodes);
+  assert.equal(decoded.invalid, false);
+  assert.equal(decoded.state.period, '1991-2020');
+  for (const period of ['2023-2025', '2021-2025', '2016-2025', '1991-2020', '1991-2025']) {
+    state.period = period;
+    assert.equal(api.decodeShareState(api.encodeShareState(state), townCodes).state.period, period);
+  }
+});
+
+test('year selection synchronizes calculation, monthly climate, sharing and reset', async () => {
+  const canvas = canvasFixture();
+  const {ids, computation} = await bootFixture('', async () => new Response(JSON.stringify(weather)), {}, {canvas, globals: {Path2D: class {}}});
+  assert.equal(ids.get('year-period').value, '2021-2025');
+  for (const [period, years] of [['2023-2025', 3], ['1991-2025', 35], ['1991-2020', 30], ['2016-2025', 10]]) {
+    const before = computation.requests.length;
+    ids.get('year-period').value = period;
+    await ids.get('year-period').fire('change');
+    assert.equal(computation.requests.length, before + 1);
+    assert.equal(computation.requests.at(-1).years, years);
+    assert.ok(ids.get('climate-period').textContent.includes(period.replace('-', '–')));
+    assert.ok(ids.get('matching-period').textContent.includes(period.replace('-', '–')));
+    assert.ok(ids.get('climate-table').innerHTML.includes(`${years}／${years}／${years}`));
+    await ids.get('share-conditions').fire('click');
+    await ids.get('share-link-option').fire('click');
+    assert.equal(new URLSearchParams(new URL(ids.get('share-url').value).hash.slice(1)).get('period'), period);
+    await ids.get('share-image-option').fire('click');
+    assert.ok(canvas.texts.some(({text}) => text.includes(`${period.replace('-', '–')} 歷年平均`)));
+    assert.ok(ids.get('share-image-download').getAttribute('download').endsWith(`-${period}.png`));
+    await ids.get('share-close').fire('click');
+  }
+  await ids.get('reset-conditions').fire('click');
+  assert.equal(ids.get('year-period').value, '2021-2025');
+  assert.equal(computation.requests.at(-1).years, 5);
+});
+
+test('legacy shared links render the original period and its 30 valid years', async () => {
+  const api = scope(), params = new URLSearchParams(api.encodeShareState(api.defaultShareState()).slice(1));
+  params.delete('period');
+  params.set('v', '1');
+  const {ids, computation} = await bootFixture(`#${params}`, async () => new Response(JSON.stringify(weather)));
+  assert.equal(ids.get('year-period').value, '1991-2020');
+  assert.equal(computation.requests.at(-1).endDay, 10958);
+  assert.equal(computation.requests.at(-1).years, 30);
+  assert.ok(ids.get('climate-table').innerHTML.includes('30／30／30'));
 });
 
 test('native sharing, cancellation, clipboard and manual fallback are distinct outcomes', async () => {
@@ -151,7 +203,7 @@ test('share card uses full-map coordinates, exact colors and selection, fits tex
   assert.ok(canvas.transforms.some(([kind, x, y]) => kind === 'scale' && x === y && x === 0.616));
   assert.ok(canvas.texts.some(({text}) => text === '150.7 天'));
   assert.ok(canvas.texts.some(({text}) => text === 'https://example.test/map/'));
-  assert.ok(canvas.texts.some(({text}) => text.includes('1991–2020')));
+  assert.ok(canvas.texts.some(({text}) => text.includes('2021–2025')));
   for (const text of canvas.texts) {
     const left = text.align === 'right' ? text.x - text.width : text.align === 'center' ? text.x - text.width / 2 : text.x;
     assert.ok(left >= 0 && left + text.width <= 1080.01, text.text);
@@ -202,22 +254,30 @@ test('main data failure rejects without zero results, and a fresh retry can reco
   }
 });
 
-test('historical annual and monthly results match the original implementation for every township', () => {
-  const api = scope();
-  const planes = Array.from({length: 6}, (_, i) => new Uint8Array(binary.buffer, binary.byteOffset + 16 + i * meta.cells.length * meta.days, meta.cells.length * meta.days));
-  function calculator(source) {
-    const decTemp = source.slice(source.indexOf('  function decTemp('), source.indexOf('  function readControls('));
-    const day = source.slice(source.indexOf('  function dayOk('), source.indexOf('  function compute(')).replace('function dayOk(', 'function originalDayOk(');
-    const compute = source.slice(source.indexOf('  function compute('), source.indexOf('  function paintReads('));
-    return new Function('planes', 'weather', 'nCells', 'nDays', 'months', 'meta', 'matchesDay', 'effectiveConditions', `
-      let settings, computedKey = null, scores, monthScores, evaluated = 0;
-      const readControls = () => settings;
-      ${decTemp}\n${day}\n${compute}
-      const dayOk = (...args) => { evaluated++; return originalDayOk(...args); };
-      return (controls) => { settings = controls; compute(); return {scores, monthScores, evaluated}; };
-    `)(planes, weather, meta.cells.length, meta.days, meta.months, meta, api.matchesDay, api.effectiveConditions);
+test('raw climate parts reconstruct exact data after gzip fallback and reject missing or truncated parts', async () => {
+  const split = 25 * 1024 * 1024;
+  for (const scenario of ['unsupported', 'gzip', 'missing', 'truncated']) {
+    const requests = [], api = scope({fetch: async (url) => {
+      requests.push(url);
+      if (url === 'gz') return new Response('corrupt');
+      if (url === 'part-2' && scenario === 'missing') return new Response('missing', {status: 404});
+      return new Response(url === 'part-1' ? binary.subarray(0, split)
+        : binary.subarray(split, scenario === 'truncated' ? binary.length - 1 : binary.length));
+    }});
+    const result = api.loadClimate({gzip: 'gz', climate: ['part-1', 'part-2']}, meta, () => {}, scenario === 'unsupported' ? null : DecompressionStream);
+    if (['missing', 'truncated'].includes(scenario)) await assert.rejects(result);
+    else assert.ok(Buffer.from(await result).equals(binary));
+    assert.deepEqual(requests, scenario === 'unsupported' ? ['part-1', 'part-2'] : ['gz', 'part-1', 'part-2']);
   }
-  const after = calculator(script);
+});
+
+test('historical annual and monthly results match the original implementation for every township', async () => {
+  const planes = Array.from({length: 6}, (_, i) => new Uint8Array(binary.buffer, binary.byteOffset + 16 + i * meta.cells.length * meta.days, meta.cells.length * meta.days));
+  const api = scope();
+  const rainLevels = vm.runInContext('RAIN_LEVELS', api);
+  const client = ClimateCompute.createClient({planes, weather, months: meta.months, years: meta.years,
+    nCells: meta.cells.length, nDays: meta.days, rainLevels}, {Worker: null});
+  client.setWeather(weather);
   // 由加入分享與快取前的版本，對同一批 368 個鄉鎮計算的年、月結果。
   const expectedHashes = [
     'bf990fde4ebed73b85fa44a04f652b9dc9069ccf3b718e40813f34957d2f5ac1',
@@ -228,11 +288,11 @@ test('historical annual and monthly results match the original implementation fo
   for (const [index, controls] of [defaults,
     {...defaults, tempLo: 19.12345, tempHi: 30.75, rainMode: 'wet', rainLo: 1, rainHi: 3, useWind: true, windMin: 9, windMax: 35},
     {...defaults, tempLo: -1e308, tempHi: 1e308, rainMode: 'any', useSun: false}].entries()) {
-    const actual = after(controls);
+    const actual = await client.calculate({...controls, ...api.periodBounds(meta, '1991-2020')});
     const hash = crypto.createHash('sha256').update(JSON.stringify({scores: actual.scores, monthScores: actual.monthScores})).digest('hex');
     assert.equal(hash, expectedHashes[index]);
-    assert.equal(after({...controls}).evaluated, actual.evaluated, 'unchanged conditions must not scan history again');
   }
+  client.dispose();
 });
 
 class Element {
@@ -261,7 +321,12 @@ class Element {
   showModal() { this.open = true; }
   close() { this.open = false; void this.fire('close'); }
   addEventListener(name, callback) { if (!this.listeners.has(name)) this.listeners.set(name, []); this.listeners.get(name).push(callback); }
-  async fire(name, event = {}) { for (const callback of this.listeners.get(name) ?? []) await callback({target: this, ...event}); }
+  async fire(name, event = {}) {
+    for (const callback of this.listeners.get(name) ?? []) await callback({target: this, ...event});
+    let root = this;
+    while (root.parentElement) root = root.parentElement;
+    await root.settle?.();
+  }
   matches(selector) {
     const excluded = selector.match(/:not\(([^)]+)\)/);
     if (excluded && this.matches(excluded[1])) return false;
@@ -308,6 +373,58 @@ function documentFixture() {
   return {document, ids};
 }
 
+function fixtureClock() {
+  let now = 0, sequence = 0;
+  const tasks = new Map();
+  return {
+    setTimeout(callback, delay = 0) { const id = ++sequence; tasks.set(id, {at: now + delay, callback}); return id; },
+    clearTimeout(id) { tasks.delete(id); },
+    tick(milliseconds) {
+      const until = now + milliseconds;
+      for (let count = 0; count < 100; count++) {
+        const next = [...tasks].filter(([, task]) => task.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
+        if (!next) { now = until; return; }
+        now = next[1].at; tasks.delete(next[0]); next[1].callback();
+      }
+      throw new Error('fixture timer did not settle');
+    },
+    flush() { if (tasks.size) this.tick(Math.max(...[...tasks.values()].map((task) => task.at)) - now); },
+  };
+}
+
+function trackCompute(module = ClimateCompute) {
+  const pending = new Set(), requests = [];
+  return {
+    requests,
+    module: {...module, createClient(...args) {
+      const client = module.createClient(...args);
+      return {...client, calculate(controls) {
+        requests.push({...controls});
+        const task = Promise.resolve(client.calculate(controls));
+        pending.add(task);
+        task.then(() => pending.delete(task), () => pending.delete(task));
+        return task;
+      }};
+    }},
+    async settle(clock) {
+      // 資料載入、分段計算與結果提交各跨越不同的非同步工作。
+      for (let round = 0; round < 4; round++) {
+        clock?.flush();
+        await new Promise((resolve) => setImmediate(resolve));
+        await Promise.all([...pending]);
+      }
+    },
+  };
+}
+
+async function waitFor(check) {
+  const deadline = Date.now() + 15_000;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error('application did not finish calculation');
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+}
+
 async function bootFixture(shared, fetchWeather, browser = {}, options = {}) {
   const {document, ids} = documentFixture();
   if (options.canvas) {
@@ -315,15 +432,147 @@ async function bootFixture(shared, fetchWeather, browser = {}, options = {}) {
     document.createElement = (tag) => tag === 'canvas' ? options.canvas : create(tag);
   }
   let location = new URL(`https://example.test/${shared ?? ''}`);
+  const clock = fixtureClock(), computation = trackCompute(options.computeModule);
+  const settle = () => computation.settle(clock);
+  if (options.autoSettle !== false) document.settle = settle;
   const window = {get location() { return location; }, history: {replaceState(_, __, value) { location = new URL(value, location); }},
     events: {}, addEventListener(name, callback) { this.events[name] = callback; },
-    clearTimeout() {}, setTimeout() { return 1; }, matchMedia: () => ({matches: true})};
+    clearTimeout: clock.clearTimeout, setTimeout: clock.setTimeout, matchMedia: () => ({matches: true})};
   const api = scope({document, window, navigator: browser, fetch: fetchWeather, ResizeObserver: class { observe() {} },
-    cancelAnimationFrame() {}, requestAnimationFrame() { return 1; }, ...options.globals});
+    ClimateCompute: computation.module, cancelAnimationFrame() {}, requestAnimationFrame() { return 1; }, ...options.globals});
   api.boot(meta, geo, binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.length));
-  await new Promise((resolve) => setImmediate(resolve));
-  return {api, window, ids, document};
+  if (options.autoSettle !== false) await settle();
+  else await new Promise((resolve) => setImmediate(resolve));
+  return {api, window, ids, document, clock, computation, settle};
 }
+
+function deferredComputation() {
+  let hold = false;
+  const jobs = [];
+  return {
+    jobs,
+    hold() { hold = true; },
+    module: {...ClimateCompute, createClient(data) {
+      const result = (value) => ({scores: Array.from({length: data.nCells}, (_, cell) => value + cell / 100),
+        monthScores: Array.from({length: data.nCells}, () => Array(12).fill(value / 12))});
+      return {setWeather() {}, cancel() {}, dispose() {}, calculate(controls) {
+        if (!hold) return Promise.resolve(result(10));
+        return new Promise((resolve) => jobs.push({controls: {...controls}, release: (value) => resolve(result(value))}));
+      }};
+    }},
+  };
+}
+
+test('dragging updates readings immediately and submits only the released condition', async () => {
+  const deferred = deferredComputation();
+  const fixture = await bootFixture('', async () => new Response(JSON.stringify(weather)), {}, {computeModule: deferred.module});
+  const {ids, document, clock, computation} = fixture;
+  document.settle = null;
+  const initial = computation.requests.length;
+  ids.get('sun-dual').classList.add('is-dragging');
+  for (const value of ['5', '4', '3']) {
+    ids.get('sun-min').value = value;
+    await ids.get('sun-min').fire('input');
+    assert.equal(ids.get('sun-read').textContent, `${value}~12 小時`);
+    clock.tick(1_000);
+    assert.equal(computation.requests.length, initial, 'a paused finger must not start a history scan');
+  }
+  ids.get('sun-dual').classList.remove('is-dragging');
+  await ids.get('sun-min').fire('change');
+  await fixture.settle();
+  assert.equal(computation.requests.length, initial + 1);
+  assert.equal(computation.requests.at(-1).sunMin, 3);
+  assert.equal(ids.get('annual').hidden, false);
+});
+
+test('latest condition result wins even if an earlier calculation finishes afterwards', async () => {
+  const deferred = deferredComputation();
+  const fixture = await bootFixture('', async () => new Response(JSON.stringify(weather)), {}, {computeModule: deferred.module});
+  const {ids, document} = fixture;
+  document.settle = null;
+  deferred.hold();
+  ids.get('sun-min').value = '5';
+  const first = ids.get('sun-min').fire('change');
+  await waitFor(() => deferred.jobs.length === 1);
+  ids.get('sun-min').value = '4';
+  const second = ids.get('sun-min').fire('change');
+  await waitFor(() => deferred.jobs.length === 2);
+  deferred.jobs[1].release(200);
+  await second;
+  await new Promise((resolve) => setImmediate(resolve));
+  const latest = ids.get('place-days').textContent;
+  assert.ok(Number(latest.replace(' 天', '')) >= 200);
+  deferred.jobs[0].release(20);
+  await first;
+  await fixture.settle();
+  assert.equal(ids.get('place-days').textContent, latest);
+  assert.equal(ids.get('sun-read').textContent, '4~12 小時');
+});
+
+test('manual township choice while calculation is pending survives recommendation and shares the current result', async () => {
+  const deferred = deferredComputation(), canvas = canvasFixture();
+  const fixture = await bootFixture('', async () => new Response(JSON.stringify(weather)), {}, {computeModule: deferred.module, canvas,
+    globals: {Path2D: class {constructor(d) { this.d = d; }}, URL: {createObjectURL: () => 'blob:current', revokeObjectURL() {}}}});
+  const {ids, document} = fixture;
+  document.settle = null;
+  deferred.hold();
+  ids.get('sun-min').value = '5';
+  const changing = ids.get('sun-min').fire('change');
+  await waitFor(() => deferred.jobs.length === 1);
+  const town = meta.towns[0];
+  ids.get('town-select').value = town.code;
+  const choosing = ids.get('town-select').fire('change');
+  assert.equal(ids.get('matching-section').hidden, true, 'new township must not retain the old matching chart while pending');
+  assert.equal(ids.get('town-prompt').textContent, '舒適天數更新中…');
+  const path = ids.get('map').querySelectorAll('.town').find((path) => path.dataset.code === town.code);
+  assert.ok(path.classes.has('is-selected'), 'outline updates before the calculation completes');
+  const sharing = ids.get('share-conditions').fire('click');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(!ids.get('share-dialog').open || ids.get('share-image-option').disabled, 'sharing cannot export the previous result while a new result is pending');
+  assert.equal(deferred.jobs.length, 1, 'selection and sharing reuse the in-flight calculation');
+  deferred.jobs[0].release(150);
+  await Promise.all([changing, choosing, sharing]);
+  await fixture.settle();
+  assert.equal(ids.get('town-select').value, town.code);
+  const expected = (150 + town.cell / 100).toFixed(1) + ' 天';
+  assert.equal(ids.get('place-days').textContent, expected);
+  await ids.get('share-image-option').fire('click');
+  assert.ok(canvas.texts.some(({text}) => text === expected), 'PNG uses the new score for the manually selected township');
+  assert.equal(ids.get('share-preview').hidden, false);
+});
+
+test('reset cancels a share dialog still waiting for the previous calculation', async () => {
+  const deferred = deferredComputation();
+  const fixture = await bootFixture('', async () => new Response(JSON.stringify(weather)), {}, {computeModule: deferred.module});
+  const {ids, document} = fixture;
+  document.settle = null;
+  deferred.hold();
+  ids.get('sun-min').value = '4';
+  const changing = ids.get('sun-min').fire('change');
+  await waitFor(() => deferred.jobs.length === 1);
+  const sharing = ids.get('share-conditions').fire('click');
+  await new Promise((resolve) => setImmediate(resolve));
+  await ids.get('reset-conditions').fire('click');
+  deferred.jobs[0].release(50);
+  await Promise.all([changing, sharing]);
+  assert.ok(!ids.get('share-dialog').open, 'reset must not reopen a cancelled share dialog');
+  for (const job of deferred.jobs.slice(1)) job.release(100);
+  await fixture.settle();
+  assert.ok(!ids.get('share-dialog').open);
+});
+
+test('Worker construction failure still renders the same complete fallback result', async () => {
+  const baseline = await bootFixture('', async () => new Response(JSON.stringify(weather)));
+  const computeModule = {...ClimateCompute, createClient(data, options) {
+    return ClimateCompute.createClient(data, {...options, Worker: class {constructor() { throw new Error('Worker blocked'); }}});
+  }};
+  const recovered = await bootFixture('', async () => new Response(JSON.stringify(weather)), {}, {computeModule});
+  assert.equal(recovered.ids.get('annual').hidden, false);
+  assert.equal(recovered.ids.get('town-select').value, baseline.ids.get('town-select').value);
+  assert.equal(recovered.ids.get('place-days').textContent, baseline.ids.get('place-days').textContent);
+  assert.deepEqual(recovered.ids.get('ranking-body').children.map((row) => row.lastElementChild.textContent),
+    baseline.ids.get('ranking-body').children.map((row) => row.lastElementChild.textContent));
+});
 
 test('main loading disables unavailable controls, exposes retry after failure and recovers the whole app', async () => {
   const {document, ids} = documentFixture();
@@ -348,7 +597,7 @@ test('main loading disables unavailable controls, exposes retry after failure an
   fail = false;
   const [loadedMeta, loadedGeo, bytes] = await api.load();
   api.boot(loadedMeta, loadedGeo, bytes);
-  await new Promise((resolve) => setImmediate(resolve));
+  await waitFor(() => ids.get('annual').hidden === false);
   assert.equal(ids.get('condition-controls').disabled, false);
   assert.equal(ids.get('town-select').disabled, false);
   assert.equal(ids.get('main-retry').hidden, true);
@@ -360,15 +609,17 @@ test('shared township is retained on first calculation; later conditions recomme
   const api = scope(), state = api.defaultShareState();
   state.town = meta.towns[0].code;
   const fixture = await bootFixture(api.encodeShareState(state), async () => new Response(JSON.stringify(weather)));
-  const {ids, document, window} = fixture;
+  const {ids, document, window, computation} = fixture;
   assert.equal(ids.get('town-select').value, state.town);
   assert.equal(ids.get('annual').hidden, false);
   assert.equal(ids.get('weather-status').hidden, true);
   assert.equal(document.querySelector('input[name="rain-mode"]:checked').value, 'dry');
   const first = ids.get('place-days').textContent;
+  const calculations = computation.requests.length;
   await ids.get('town-select').fire('change');
   assert.equal(ids.get('place-days').textContent, first);
   await document.querySelector('[data-sort="name"]').fire('click');
+  assert.equal(computation.requests.length, calculations, 'town selection and sorting must reuse the current scores');
   assert.equal(window.location.hash, '');
   await ids.get('share-conditions').fire('click');
   await ids.get('share-link-option').fire('click');
@@ -483,15 +734,17 @@ test('opening another fragment in an existing page restores before calculation a
   state.town = meta.towns[0].code;
   state.temperature.mode = 'advanced';
   state.temperature.advanced = {lo: 19.12345, hi: 30.75};
-  const {ids, window} = await bootFixture('', async () => new Response(JSON.stringify(weather)));
+  const {ids, window, settle} = await bootFixture('', async () => new Response(JSON.stringify(weather)));
   window.history.replaceState(null, '', '/' + api.encodeShareState(state));
   window.events.hashchange();
+  await settle();
   assert.equal(ids.get('town-select').value, state.town);
   assert.equal(ids.get('tmax-read').textContent, '19.12345~30.75℃');
   assert.equal(ids.get('annual').hidden, false);
   assert.equal(window.location.hash, '');
   window.history.replaceState(null, '', '/#v=999');
   window.events.hashchange();
+  await settle();
   assert.equal(window.location.hash, '');
   assert.match(ids.get('share-notice').textContent, /無效或版本不支援/);
   assert.equal(ids.get('tmax-read').textContent, '20~28℃');
@@ -516,7 +769,7 @@ test('share button shows a selectable manual URL when copying fails and stays qu
   assert.equal(ids.get('manual-share').hidden, false);
   assert.equal(window.location.href, 'https://example.test/');
   assert.notEqual(ids.get('share-url').value, window.location.href);
-  assert.match(ids.get('share-url').value, /#v=1&/);
+  assert.match(ids.get('share-url').value, /#v=2&/);
   assert.equal(ids.get('share-url').focused, true);
   assert.equal(ids.get('share-url').selected, true);
   assert.equal(ids.get('share-conditions').disabled, false);
@@ -627,13 +880,17 @@ test('closing or resetting before PNG export finishes discards stale output, and
   assert.match(ids.get('share-image-notice').textContent, /下載 PNG/);
 });
 
-test('deployment output is isolated, versioned, byte-identical and has gzip-safe cache headers', () => {
+test('deployment output is isolated, versioned, byte-identical and has gzip-safe cache headers', async () => {
   const result = buildSite(), base = path.join(result.output, 'data', result.version);
   assert.equal(result.originalBytes, binary.length);
-  assert.ok(result.gzipBytes < 8_000_000);
+  assert.ok(result.gzipBytes < 10_000_000);
   assert.ok(zlib.gunzipSync(fs.readFileSync(path.join(base, 'climate.bin.gz'))).equals(binary));
-  for (const name of ['meta.json', 'towns.geojson', 'climate.bin', 'weather-details.json']) assert.ok(fs.readFileSync(path.join(base, name)).equals(fs.readFileSync(path.join(__dirname, 'data', name))));
-  assert.deepEqual(fs.readdirSync(result.output).sort(), ['_headers', 'data', 'favicon.svg', 'index.html']);
+  for (const name of ['meta.json', 'towns.geojson', 'weather-details.json']) assert.ok(fs.readFileSync(path.join(base, name)).equals(fs.readFileSync(path.join(__dirname, 'data', name))));
+  assert.deepEqual(result.climateFiles, ['climate.part-1.bin', 'climate.part-2.bin']);
+  assert.ok(Buffer.concat(result.climateFiles.map((name) => fs.readFileSync(path.join(base, name)))).equals(binary));
+  assert.equal(fs.existsSync(path.join(base, 'climate.bin')), false);
+  for (const name of fs.readdirSync(base)) assert.ok(fs.statSync(path.join(base, name)).size <= 25 * 1024 * 1024, name);
+  assert.deepEqual(fs.readdirSync(result.output).sort(), ['_headers', result.computeFile, 'data', 'favicon.svg', 'index.html'].sort());
   assert.deepEqual(fs.readdirSync(path.join(result.output, 'data')), [result.version]);
   const headers = fs.readFileSync(path.join(result.output, '_headers'), 'utf8');
   assert.match(headers, /max-age=0, must-revalidate/);
@@ -644,15 +901,33 @@ test('deployment output is isolated, versioned, byte-identical and has gzip-safe
   assert.match(headers, /Content-Type: application\/gzip/);
   assert.doesNotMatch(headers, /Content-Encoding:/i);
   const blocks = headers.trim().split(/\n\s*\n/).map((block) => block.split('\n'));
-  for (const file of ['/', '/index.html', ...fs.readdirSync(base).map((name) => `/data/${result.version}/${name}`)]) {
+  for (const file of ['/', '/index.html', `/${result.computeFile}`, ...fs.readdirSync(base).map((name) => `/data/${result.version}/${name}`)]) {
     const cacheValues = blocks.filter(([pattern]) => pattern === file || pattern === '/*')
       .flatMap(([, ...lines]) => lines.filter((line) => /^\s+Cache-Control:/.test(line)));
     assert.equal(cacheValues.length, 1, `cache rules must not merge contradictory max-age values: ${file}`);
   }
   const deployed = fs.readFileSync(path.join(result.output, 'index.html'), 'utf8');
+  const manifest = JSON.parse(deployed.match(/^const DATA_FILES = (.*);$/m)[1]);
+  const deployedApi = scope({fetch: async (url) => new Response(fs.readFileSync(path.join(result.output, url)))});
+  assert.ok(Buffer.from(await deployedApi.loadClimate(manifest, meta, () => {}, null)).equals(binary));
   assert.match(deployed, new RegExp(`data/${result.version}/climate.bin.gz`));
+  const computeSource = fs.readFileSync(path.join(__dirname, 'climate-compute.js'));
+  assert.ok(fs.readFileSync(path.join(result.output, result.computeFile)).equals(computeSource));
+  assert.equal(result.computeFile, `climate-compute.${crypto.createHash('sha256').update(computeSource).digest('hex').slice(0, 16)}.js`);
+  assert.ok(deployed.includes(`<script src="${result.computeFile}"></script>`));
+  assert.ok(deployed.includes(`const COMPUTE_FILE = '${result.computeFile}';`));
+  assert.doesNotMatch(deployed, /['"]climate-compute\.js['"]/);
   assert.doesNotMatch(deployed, /精確雨量/);
   assert.match(deployed, /<noscript>/);
   assert.match(deployed, /og:description/);
-  assert.equal(crypto.createHash('sha256').update(binary).digest('hex'), '4398724fbed4baaea2ccd86efd45c891a768a683fc0201b67c4ce89092385fc8');
+  assert.equal(crypto.createHash('sha256').update(binary).digest('hex'), '072094c2363cf144f31b3fab105ae5405afcbf276de5136f2d64e0f58ba26bb7');
+  const historicalDays = 10958, historical = Buffer.alloc(16 + meta.cells.length * historicalDays * 6);
+  binary.copy(historical, 0, 0, 16);
+  historical.writeUInt16LE(historicalDays, 8);
+  for (let variable = 0; variable < 6; variable++) for (let cell = 0; cell < meta.cells.length; cell++) {
+    const from = 16 + (variable * meta.cells.length + cell) * meta.days;
+    const to = 16 + (variable * meta.cells.length + cell) * historicalDays;
+    binary.copy(historical, to, from, from + historicalDays);
+  }
+  assert.equal(crypto.createHash('sha256').update(historical).digest('hex'), '4398724fbed4baaea2ccd86efd45c891a768a683fc0201b67c4ce89092385fc8');
 });

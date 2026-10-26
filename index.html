@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>台灣舒適度地圖</title>
-<meta name="description" content="自訂氣溫、降雨、估計日照與風速條件，比較台灣各鄉鎮在 1991–2020 年間平均每年符合條件的天數。">
+<meta name="description" content="自訂氣溫、降雨、估計日照與風速條件，選擇近 3 年、近 5 年、近 10 年或全部年份，比較台灣各鄉鎮平均每年的舒適天數。資料涵蓋 1991–2025 年。">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="zh_TW">
 <meta property="og:title" content="台灣舒適度地圖">
-<meta property="og:description" content="用你的舒適條件，探索台灣各鄉鎮的歷年平均舒適天數。資料期間為 1991–2020 年。">
+<meta property="og:description" content="用你的舒適條件，探索台灣各鄉鎮的歷年平均舒適天數。資料涵蓋 1991–2025 年，可篩選近年或全部年份。">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="台灣舒適度地圖">
-<meta name="twitter:description" content="用你的舒適條件，探索台灣各鄉鎮的歷年平均舒適天數。資料期間為 1991–2020 年。">
+<meta name="twitter:description" content="用你的舒適條件，探索台灣各鄉鎮的歷年平均舒適天數。資料涵蓋 1991–2025 年，可篩選近年或全部年份。">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
   /* 使用系統字型，讓離線資料頁不依賴字型服務。 */
@@ -52,11 +52,17 @@
   .top {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px 32px;
-    align-items: flex-end;
+    gap: 8px 16px;
+    align-items: center;
     justify-content: space-between;
     padding: 16px 16px 0;
   }
+  .header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; margin-left: auto; }
+  .header-links { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .header-links > a { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 44px; min-height: 44px; padding: 6px 10px; border-radius: 5px; color: #49668F; font-size: 0.8125rem; text-decoration: none; }
+  .header-links > a:hover { color: var(--primary); background: #EDF3FC; }
+  .header-links svg { flex: none; }
+  .github-stars { display: inline-flex; align-items: center; gap: 4px; padding-left: 8px; border-left: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   .shell {
     display: grid;
     grid-template-columns: clamp(280px, 22vw, 320px) minmax(0, 1fr);
@@ -100,6 +106,9 @@
     gap: 8px;
   }
   .select-label { justify-content: space-between; }
+  .period-control { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 0.75rem; color: #526077; }
+  .period-control label { white-space: nowrap; }
+  .period-control select { width: 184px; min-width: 0; min-height: 32px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--ink); font-size: 0.75rem; }
   .icon { width: 20px; height: 20px; flex: none; color: var(--primary); }
   .value { font-variant-numeric: tabular-nums; font-weight: 650; }
   .hint { color: var(--hint); font-size: 0.875rem; margin-top: 4px; }
@@ -112,7 +121,7 @@
   }
   .dual-track { left: 11px; right: 11px; background: var(--track-gradient, linear-gradient(90deg, #38A4FA 0%, #BCE6FF 30%, #F8FAFC 50%, #FBCDDD 72%, #F57870 100%)); }
   .dual-fill { top: 16px; height: 12px; border: 2px solid var(--primary); background: #DBEAFE80; box-shadow: 0 0 0 2px white; pointer-events: none; }
-  .dual.can-shift .dual-fill::after { content: ""; position: absolute; left: calc(11px - 2px); right: calc(11px - 2px); top: 50%; height: 44px; transform: translateY(-50%); pointer-events: auto; cursor: grab; }
+  .dual.can-shift .dual-fill::after { content: ""; position: absolute; left: calc(22px - 2px); right: calc(22px - 2px); top: 50%; height: 44px; transform: translateY(-50%); pointer-events: auto; cursor: grab; }
   .dual.is-shifting .dual-fill { border-color: #172554; box-shadow: 0 0 0 2px white, 0 0 0 4px #93C5FD; }
   .dual.is-shifting, .dual.is-shifting .dual-fill::after { cursor: grabbing; }
   #rain-dual { --track-gradient: linear-gradient(90deg, #DBF2FF, #73B6EB 50%, #4264C8); }
@@ -195,6 +204,7 @@
   .shell[aria-busy="true"] #map { pointer-events: none; }
   .conditions .icon { width: 18px; height: 18px; }
   .conditions .hint { color: #526077; font-size: 0.75rem; line-height: 1.7; margin-top: 4px; }
+  #compute-status { min-height: 1.7em; margin-top: 8px; }
   .conditions .value {
     display: inline-block;
     padding: 3px 6px;
@@ -227,9 +237,10 @@
   .weather-option > .hint { margin: 8px 0 0; }
   .data-status { margin-top: 14px; padding: 10px; border-radius: 6px; background: #FFF7ED; color: #9A3412; font-size: 0.8rem; }
   .data-status button { margin-top: 8px; min-height: 44px; border: 1px solid #9A3412; border-radius: 5px; padding: 4px 12px; background: white; color: #9A3412; }
-  .conditions input.bar-handle { touch-action: pan-y; }
-  .conditions input.bar-handle::-webkit-slider-thumb { width: 22px; height: 44px; margin-top: -20px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
-  .conditions input.bar-handle::-moz-range-thumb { width: 22px; height: 44px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
+  /* 擴大把手操作盒，向外補償寬度，維持把手中心與滑軌刻度一致。 */
+  .conditions input.bar-handle { left: -11px; width: calc(100% + 22px); touch-action: none; }
+  .conditions input.bar-handle::-webkit-slider-thumb { width: 44px; height: 44px; margin-top: -20px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
+  .conditions input.bar-handle::-moz-range-thumb { width: 44px; height: 44px; border: 0; border-radius: 0; background: linear-gradient(var(--primary), var(--primary)) center / 4px 22px no-repeat, linear-gradient(white, white) center / 8px 26px no-repeat; }
   .conditions input.bar-handle:focus-visible { outline: none; }
   .map-frame {
     position: relative;
@@ -374,7 +385,18 @@
     .conditions, main, .lists { grid-column: auto; grid-row: auto; }
     .map-frame { height: 72vh; }
   }
+  @media (max-width: 640px) {
+    .top { column-gap: 8px; }
+    .header-actions { display: contents; }
+    .header-links { margin-left: auto; gap: 3px; }
+    .header-links > a { gap: 4px; padding-inline: 6px; }
+    .github-label { display: none; }
+    .github-stars { gap: 3px; padding-left: 5px; }
+    .period-control { order: 1; flex-basis: 100%; justify-content: flex-end; margin-left: 0; }
+  }
   @media (max-width: 480px) {
+    .top h1 { font-size: 1.25rem; }
+    .report-label { display: none; }
     .detail { padding: 14px 12px; }
     .detail-head { gap: 8px; }
     .detail-head select { font-size: 0.875rem; padding: 6px; }
@@ -391,9 +413,32 @@
   <div>
     <h1>台灣舒適度地圖</h1>
   </div>
+  <div class="header-actions">
+  <div class="period-control">
+    <label for="year-period">資料期間</label>
+    <select id="year-period" aria-describedby="period-note" disabled>
+      <option value="2023-2025">近 3 年（2023–2025）</option>
+      <option value="2021-2025" selected>近 5 年（2021–2025）</option>
+      <option value="2016-2025">近 10 年（2016–2025）</option>
+      <option value="1991-2025">全部年份（1991–2025）</option>
+    </select>
+    <span class="sr-only" id="period-note">以完整曆年計算；近年平均較易受個別異常年份影響。</span>
+  </div>
+  <nav class="header-links" aria-label="專案與問題回報">
+    <a id="github-link" href="https://github.com/papple23g/taiwan-comfort-map" target="_blank" rel="noopener noreferrer" aria-label="GitHub 原始碼（另開分頁）" title="GitHub 原始碼（另開分頁）">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .75a11.25 11.25 0 0 0-3.56 21.92c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.29-.5-1.43.11-2.98 0 0 .95-.3 3.1 1.15a10.8 10.8 0 0 1 5.64 0c2.15-1.46 3.1-1.15 3.1-1.15.61 1.55.23 2.69.11 2.98.72.79 1.16 1.79 1.16 3.02 0 4.32-2.64 5.27-5.15 5.55.4.35.76 1.03.76 2.08v3.11c0 .3.2.65.77.54A11.25 11.25 0 0 0 12 .75Z"/></svg>
+      <span class="github-label">GitHub</span>
+      <span class="github-stars" id="github-stars" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.3.9-4.5 4.4 1.1 6.2-5.7-3-5.7 3 1.1-6.2-4.5-4.4 6.3-.9Z"/></svg><span id="github-star-count"></span></span>
+    </a>
+    <a href="https://github.com/papple23g/taiwan-comfort-map/issues" target="_blank" rel="noopener noreferrer" aria-label="問題回報：GitHub Issues（另開分頁）" title="問題回報（另開分頁）">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 3 1.5 3m6.5-3-1.5 3M9 6h6l2 3v7a5 5 0 0 1-10 0V9Zm-2 4H3m4 5H3m4 4-3 2m13-11h4m-4 5h4m-4 4 3 2M12 10v10"/></svg>
+      <span class="report-label">問題回報</span>
+    </a>
+  </nav>
+  </div>
 </header>
 <noscript><p class="data-status">此地圖需要啟用 JavaScript 才能載入資料與計算條件；資料來源與方法可在頁尾閱讀。</p></noscript>
-<div id="main-status"><p id="banner" role="status">正在下載地圖與 30 年氣候資料…</p><button type="button" id="main-retry" hidden>重試載入主資料</button></div>
+<div id="main-status"><p id="banner" role="status">正在下載地圖與氣候資料…</p><button type="button" id="main-retry" hidden>重試載入主資料</button></div>
 <p id="live" class="sr-only" aria-live="polite"></p>
 <p id="range-help" class="sr-only">拖曳把手調整上下限，拖曳選取段可保持區間寬度一起移動。聚焦任一把手後，Shift 加方向鍵移動整段，Shift 加 Home 或 End 移至邊界；一般方向鍵只調整該端點。</p>
 <div class="shell" id="app" aria-busy="true">
@@ -478,6 +523,7 @@
       </div>
       </fieldset>
       <p class="hint" id="share-notice" role="status"></p>
+      <p class="hint" id="compute-status" role="status"></p>
       <div class="data-status" id="weather-status" role="status">
         <p id="weather-message">等待載入雨量與月氣候資料…</p>
         <button type="button" id="weather-retry" hidden>重試載入</button>
@@ -515,17 +561,19 @@
       <p class="empty-state" id="town-prompt">點選地圖、表格或上方選單，查看鄉鎮的每月天數與氣候。</p>
       <section class="chart-section" id="matching-section" hidden>
         <h2>每月舒適天數</h2>
+        <p class="hint" id="matching-period"></p>
         <div class="chart-scroll" role="region" aria-label="每月舒適天數圖"><svg class="chart" id="months" viewBox="0 0 720 270" role="img" aria-label="每月平均舒適天數，縱軸固定為零至三十一天"></svg></div>
       </section>
       <section class="chart-section" id="climate-section" hidden>
         <h2>氣溫與雨量</h2>
-        <p class="hint">1991–2020 年月平均，不隨舒適條件篩選。</p>
+        <p class="hint" id="climate-period">2021–2025 年月平均，不隨舒適條件篩選。</p>
         <p class="hint" id="climate-message" role="status"></p>
         <div id="climate-content" hidden>
           <div class="chart-legend" aria-label="氣候圖圖例"><span><i class="swatch"></i>平均最高溫</span><span><i class="swatch low"></i>平均最低溫</span><span><i class="swatch rain"></i>平均月累積雨量</span></div>
           <div class="chart-scroll" role="region" aria-label="氣溫雨量圖"><svg class="chart" id="climate-chart" viewBox="0 0 720 310" role="img" aria-label="各月平均最高溫、最低溫與累積雨量"></svg></div>
+          <div class="chart-scroll" role="region" aria-label="每月風速圖"><svg class="chart" id="wind-chart" viewBox="0 0 720 230" role="img" aria-label="各月日最大風速的平均"></svg></div>
           <details><summary>查看每月數據與有效年數</summary>
-            <div class="table-scroll" tabindex="0" role="region" aria-label="每月數據表，可水平捲動"><table><caption class="sr-only">1991–2020 年各月氣候統計；只納入資料完整的年月。</caption><thead><tr><th scope="col">月份</th><th scope="col">最高溫 °C</th><th scope="col">最低溫 °C</th><th scope="col">雨量 毫米</th><th scope="col">有效年數（高／低／雨）</th></tr></thead><tbody id="climate-table"></tbody></table></div>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="每月數據表，可水平捲動"><table><caption class="sr-only" id="climate-caption">選定期間各月氣候統計；只納入資料完整的年月。</caption><thead><tr><th scope="col">月份</th><th scope="col">最高溫 °C</th><th scope="col">最低溫 °C</th><th scope="col">雨量 毫米</th><th scope="col">有效年數（高／低／雨）</th></tr></thead><tbody id="climate-table"></tbody></table></div>
             <p class="hint">先計算各年月的平均氣溫與累積雨量，再平均相同月份。各項只納入每日資料完整的年月；缺值以「—」表示。</p>
           </details>
         </div>
@@ -552,12 +600,13 @@
   </section>
 </div>
 <footer>
-  <p>氣候資料：<a href="https://power.larc.nasa.gov/docs/methodology/data/sources/">NASA POWER</a>（1991–2020）；地形：<a href="https://open-meteo.com/en/docs/elevation-api">Open-Meteo</a>／<a href="https://doi.org/10.5270/ESA-c5d3d65">Copernicus DEM</a>；鄉鎮界：<a href="https://data.gov.tw/dataset/7441">內政部資料</a>（<a href="https://github.com/plotdb/pdmaptw#license">pdmaptw 整理</a>）。</p>
+  <p>氣候資料：<a href="https://power.larc.nasa.gov/docs/methodology/data/sources/">NASA POWER</a>（1991–2025）；地形：<a href="https://open-meteo.com/en/docs/elevation-api">Open-Meteo</a>／<a href="https://doi.org/10.5270/ESA-c5d3d65">Copernicus DEM</a>；鄉鎮界：<a href="https://data.gov.tw/dataset/7441">內政部資料</a>（<a href="https://github.com/plotdb/pdmaptw#license">pdmaptw 整理</a>）。</p>
   <p>舒適天數為符合自訂條件的歷年平均；各地以代表點估算，並非即時觀測或天氣預報。</p>
   <details><summary>資料來源與計算方法</summary>
     <p>氣象資料採 NASA POWER 粗網格：氣溫、雨量與風速約為緯度 0.5° × 經度 0.625°，日射約為 1°，無法呈現鄉鎮內的局部差異。各鄉鎮以一個代表點估算；氣溫依網格與代表點的高度差，以每升高 1 公里降低 6.5℃ 修正。雨量、風速與日射沿用所屬網格。估計日照以白晝長度乘上全天空／晴空日射比值（限制在 0–1），並非測站實測日照時數。詳見 <a href="https://power.larc.nasa.gov/docs/methodology/data/sources/">NASA POWER 資料說明</a>與 <a href="https://open-meteo.com/en/docs/elevation-api">地形資料說明</a>。</p>
     <p>每天最低溫與最高溫都須落在設定範圍內；降雨使用日累積量，「無雨」為小於 1 毫米，「有雨」依畫面標示的級別範圍判斷；風速使用離地 10 公尺的日最大風速。所有啟用的條件必須同時符合，上下限均包含端點，降雨級別的上限除外。氣溫資料以 0.5℃ 儲存，進階小數輸入不代表資料具有相同精度。</p>
-    <p>每年平均符合天數＝1991–2020 年符合天數 ÷ 30；每月舒適天數＝這 30 年同月份符合天數 ÷ 30。氣溫與雨量月統計不隨條件篩選：先計算各年月的平均氣溫與累積雨量，再平均相同月份；各項只納入每日資料完整的年月，缺值以「—」表示，表格列出有效年數。</p>
+    <p>每年平均符合天數＝選定期間符合天數 ÷ 選定年數；每月舒適天數＝該期間同月份符合天數 ÷ 選定年數。資料只納入至 2025 年底的完整曆年。氣溫與雨量月統計隨資料期間更新，不受舒適條件影響：先計算各年月的平均氣溫與累積雨量，再平均相同月份；各項只納入每日資料完整的年月，缺值以「—」表示，表格列出有效年數。</p>
+    <p>近年平均較易受個別異常年份影響；歷史平均不代表未來預測。日射資料跨年代有來源變更，不宜直接將其差異解讀為氣候變遷趨勢。</p>
     <p>鄉鎮界採內政部資料，由 pdmaptw 整理（2025-03-18 版），依政府資料開放授權條款第 1 版使用；詳見 <a href="https://github.com/plotdb/pdmaptw#license">鄉鎮界來源與授權</a>。</p>
   </details>
 </footer>
@@ -580,6 +629,7 @@
     </div>
   </div>
 </dialog>
+<script src="climate-compute.js"></script>
 <script>
 const STOPS = [
   [0, [253, 243, 254]],
@@ -622,19 +672,80 @@ const $ = (id) => document.getElementById(id);
 const banner = $('banner');
 // 打包時以同一批內容雜湊路徑取代所有資料網址。
 const DATA_FILES = {meta: 'data/meta.json', geo: 'data/towns.geojson', climate: 'data/climate.bin', gzip: null, weather: 'data/weather-details.json'};
+const COMPUTE_FILE = 'climate-compute.js';
+const YEAR_PERIODS = ['2023-2025', '2021-2025', '2016-2025', '1991-2020', '1991-2025'];
+
+async function updateGitHubStars() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+  try {
+    const response = await fetch('https://api.github.com/repos/papple23g/taiwan-comfort-map', {
+      signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer',
+      headers: {Accept: 'application/vnd.github+json'},
+    });
+    if (!response.ok) return;
+    const {stargazers_count: count} = await response.json();
+    if (!Number.isSafeInteger(count) || count < 0) return;
+    $('github-star-count').textContent = count.toLocaleString('en-US');
+    $('github-stars').hidden = false;
+    $('github-link').setAttribute('aria-label', `GitHub 原始碼，${count} 顆 Star（另開分頁）`);
+  } catch {
+    // 公開 API 無法使用時保留原始碼連結，省略 Star 數。
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function periodBounds(meta, period) {
+  if (!YEAR_PERIODS.includes(period)) throw new Error('資料期間無效');
+  const [startYear, endYear] = period.split('-').map(Number);
+  const origin = Date.parse(meta.start + 'T00:00:00Z');
+  const startDay = (Date.UTC(startYear, 0, 1) - origin) / 86400000;
+  const endDay = (Date.UTC(endYear + 1, 0, 1) - origin) / 86400000;
+  if (!Number.isInteger(startDay) || !Number.isInteger(endDay) || startDay < 0 || endDay > meta.days) throw new Error('資料未涵蓋所選期間');
+  return {startYear, endYear, startDay, endDay, years: endYear - startYear + 1, label: `${startYear}–${endYear}`};
+}
+
+function monthlyForPeriod(meta, planes, weather, cell, bounds) {
+  const totals = Array.from({length: 12}, () => ({tmax: 0, tmin: 0, precip: 0, wind: 0, validYears: {tmax: 0, tmin: 0, precip: 0, wind: 0}}));
+  const rain = weather.grids[weather.cellGrid[cell]].rain;
+  let day = bounds.startDay;
+  for (let year = bounds.startYear; year <= bounds.endYear; year += 1) {
+    for (let month = 0; month < 12; month += 1) {
+      const days = (Date.UTC(year, month + 1, 1) - Date.UTC(year, month, 1)) / 86400000;
+      const sums = [0, 0, 0, 0], valid = [0, 0, 0, 0];
+      for (let offset = 0; offset < days; offset += 1, day += 1) {
+        const position = cell * meta.days + day;
+        const values = [planes[0][position], planes[1][position], rain[day], planes[5]?.[position]];
+        for (let field = 0; field < 4; field += 1) {
+          if (!Number.isFinite(values[field]) || (field !== 2 && values[field] === 255)) continue;
+          sums[field] += field < 2 ? values[field] / 2 - 40 : values[field];
+          valid[field] += 1;
+        }
+      }
+      ['tmax', 'tmin', 'precip', 'wind'].forEach((key, field) => {
+        if (valid[field] !== days) return;
+        totals[month][key] += field === 2 ? sums[field] : sums[field] / days;
+        totals[month].validYears[key] += 1;
+      });
+    }
+  }
+  return totals.map((month) => ({...month, ...Object.fromEntries(['tmax', 'tmin', 'precip', 'wind'].map((key) => [key,
+    month.validYears[key] ? month[key] / month.validYears[key] : null]))}));
+}
 
 function defaultShareState() {
   return {
     town: '', temperature: {mode: 'basic', basic: {lo: 20, hi: 28}, advanced: {lo: 20, hi: 28}},
     rain: {mode: 'dry', lo: 0, hi: 4}, sun: {mode: 'sun', lo: 6, hi: 12}, wind: {mode: 'any', lo: 5, hi: 30},
-    regions: Object.keys(REGION_COUNTIES), sort: 'days', direction: 'descending',
+    regions: Object.keys(REGION_COUNTIES), sort: 'days', direction: 'descending', period: '2021-2025',
   };
 }
 
 function encodeShareState(state) {
   const pair = (range) => `${range.lo},${range.hi}`;
   const params = new URLSearchParams({
-    v: '1', town: state.town, temperature: state.temperature.mode,
+    v: '2', period: state.period, town: state.town, temperature: state.temperature.mode,
     basic: pair(state.temperature.basic), advanced: pair(state.temperature.advanced),
     rain: state.rain.mode, rainRange: pair(state.rain), sun: state.sun.mode, sunRange: pair(state.sun),
     wind: state.wind.mode, windRange: pair(state.wind), regions: state.regions.join(','),
@@ -649,8 +760,10 @@ function decodeShareState(hash, townCodes) {
   try {
     if (hash.length > 4096 || /%(?![0-9a-f]{2})/i.test(hash)) throw new Error('fragment');
     const params = new URLSearchParams(hash.slice(1));
+    const version = params.get('v');
     const keys = ['v', 'town', 'temperature', 'basic', 'advanced', 'rain', 'rainRange', 'sun', 'sunRange', 'wind', 'windRange', 'regions', 'sort', 'direction'];
-    if ([...params].length !== keys.length || keys.some((key) => params.getAll(key).length !== 1) || params.get('v') !== '1') throw new Error('version');
+    if (version === '2') keys.push('period');
+    if (!['1', '2'].includes(version) || [...params].length !== keys.length || keys.some((key) => params.getAll(key).length !== 1)) throw new Error('version');
     const choice = (key, values) => {
       const value = params.get(key);
       if (!values.includes(value)) throw new Error(key);
@@ -669,7 +782,7 @@ function decodeShareState(hash, townCodes) {
     const regions = regionText ? regionText.split(',') : [];
     if (new Set(regions).size !== regions.length || regions.some((region) => !Object.hasOwn(REGION_COUNTIES, region))) throw new Error('regions');
     return {shared: true, invalid: false, state: {
-      town,
+      town, period: version === '1' ? '1991-2020' : choice('period', YEAR_PERIODS),
       temperature: {mode: choice('temperature', ['basic', 'advanced']), basic: pair('basic', 15, 35, 0.5), advanced: pair('advanced')},
       rain: {mode: choice('rain', ['any', 'dry', 'wet']), ...pair('rainRange', 0, 4, 1)},
       sun: {mode: choice('sun', ['any', 'sun']), ...pair('sunRange', 1, 12, 0.5)},
@@ -806,7 +919,7 @@ function renderShareImage(card, canvas = document.createElement('canvas'), makeP
     drawShareText(context, value, left, top + 28, 462, 28, 600);
   });
   drawShareText(context, card.siteUrl, 64, 1210, 952, 25, 500, '#3157A5');
-  drawShareText(context, '1991–2020 歷年平均估算；非即時觀測或天氣預報。', 64, 1254, 952, 22, 400, '#526077');
+  drawShareText(context, `${card.state.period.replace('-', '–')} 歷年平均估算；非即時觀測或天氣預報。`, 64, 1254, 952, 22, 400, '#526077');
   drawShareText(context, '氣候：NASA POWER；地形：Open-Meteo／Copernicus DEM', 64, 1290, 952, 18, 400, '#526077');
   drawShareText(context, '鄉鎮界：內政部資料（pdmaptw 整理）', 64, 1316, 952, 18, 400, '#526077');
   return new Promise((resolve, reject) => canvas.toBlob((blob) => {
@@ -821,6 +934,7 @@ function effectiveConditions(controls) {
     ...(controls.rainMode === 'wet' ? [controls.rainLo, controls.rainHi] : []),
     controls.useSun, ...(controls.useSun ? [controls.sunMin, controls.sunMax] : []),
     controls.useWind, ...(controls.useWind ? [controls.windMin, controls.windMax] : []),
+    controls.startDay, controls.endDay, controls.years,
   ]);
 }
 
@@ -890,7 +1004,7 @@ function commitTemperature(state, loText, hiText) {
   return errors;
 }
 
-function bindTemperatureControls(onUpdate) {
+function bindTemperatureControls(onUpdate, onEnd = () => {}) {
   const state = createTemperatureState();
   const lo = $('tmax-lo'), hi = $('tmax-hi');
   const numbers = {lo: $('temperature-lo-number'), hi: $('temperature-hi-number')};
@@ -943,6 +1057,7 @@ function bindTemperatureControls(onUpdate) {
   }
   const pointer = bindDualPointer(lo, hi, $('tmax-dual'), {
     step: 0.5,
+    onEnd,
     onRange: (lower, upper, confirm) => {
       state[state.mode] = {lo: lower, hi: upper};
       sync();
@@ -1024,19 +1139,11 @@ function showError(error) {
 }
 
 function rainMatches(rain, mode, lo, hi) {
-  if (mode === 'any') return true;
-  if (!Number.isFinite(rain) || rain < 0) return false;
-  if (mode === 'dry') return rain < 1;
-  return rain >= RAIN_LEVELS[lo].min && rain < RAIN_LEVELS[hi].max;
+  return ClimateCompute.rainMatches(rain, mode, lo, hi, RAIN_LEVELS);
 }
 
 function matchesDay(high, low, rain, sun, wind, controls) {
-  if (!Number.isFinite(high) || !Number.isFinite(low)) return false;
-  if (high < controls.tempLo || high > controls.tempHi || low < controls.tempLo || low > controls.tempHi) return false;
-  if (!rainMatches(rain, controls.rainMode, controls.rainLo, controls.rainHi)) return false;
-  if (controls.useSun && (!Number.isFinite(sun) || sun < controls.sunMin || sun > controls.sunMax)) return false;
-  if (controls.useWind && (!Number.isFinite(wind) || wind < controls.windMin || wind > controls.windMax)) return false;
-  return true;
+  return ClimateCompute.matchesDay(high, low, rain, sun, wind, controls, RAIN_LEVELS);
 }
 
 function clampRange(lo, hi, changed) {
@@ -1070,7 +1177,7 @@ function shiftRange(lo, hi, min, max, delta, step) {
   return {lo: addRangeDelta(lo, shift), hi: addRangeDelta(hi, shift)};
 }
 
-function bindDualPointer(lo, hi, root, {step = Number(lo.step) || 0.5, onRange} = {}) {
+function bindDualPointer(lo, hi, root, {step = Number(lo.step) || 0.5, onRange, onEnd = () => {}} = {}) {
   let drag = null;
   const applyRange = (next, confirm) => {
     if (next.lo === Number(lo.value) && next.hi === Number(hi.value)) return false;
@@ -1082,10 +1189,13 @@ function bindDualPointer(lo, hi, root, {step = Number(lo.step) || 0.5, onRange} 
     const {input, id, changed, kind} = drag;
     drag = null;
     root.classList.remove('is-shifting');
+    root.classList.remove('is-dragging');
     if (root.hasPointerCapture(id)) root.releasePointerCapture(id);
-    if (!confirm || !changed) return;
-    if (kind === 'range') onRange(Number(lo.value), Number(hi.value), true);
-    else input.dispatchEvent(new Event('change', {bubbles: true}));
+    if (confirm && changed) {
+      if (kind === 'range') onRange(Number(lo.value), Number(hi.value), true);
+      else input.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    onEnd(changed, confirm);
   };
   for (const input of [lo, hi]) {
     input.setAttribute('aria-describedby', [input.getAttribute('aria-describedby'), 'range-help'].filter(Boolean).join(' '));
@@ -1109,16 +1219,17 @@ function bindDualPointer(lo, hi, root, {step = Number(lo.step) || 0.5, onRange} 
     const fraction = (value) => (Number(value) / unit - min / unit) / (max / unit - min / unit);
     const a = fraction(lo.value), b = fraction(hi.value);
     const left = rect.left + 11 + a * width, right = rect.left + 11 + b * width;
-    const overlap = right - left <= 22 && event.clientX >= left - 11 && event.clientX <= right + 11;
-    const range = onRange && event.clientX > left + 11 && event.clientX < right - 11 && (a > 0 || b < 1);
-    if (!overlap && !range) return;
-    // 重疊區由移動方向決定端點；區間中央另行處理整段平移。
-    if (overlap) event.preventDefault();
+    const endpoint = Math.abs(event.clientX - left) <= 22 || Math.abs(event.clientX - right) <= 22;
+    const range = onRange && event.clientX > left + 22 && event.clientX < right - 22 && (a > 0 || b < 1);
+    if (!endpoint && !range) return;
+    // 端點統一由 Pointer Events 處理，避免原生拖曳與自訂拖曳交替。
+    if (endpoint) event.preventDefault();
     event.stopPropagation();
     drag = {id: event.pointerId, x: event.clientX, y: event.clientY, width, min, max, unit, a, b, left, right,
-      lower: Number(lo.value), upper: Number(hi.value), kind: overlap ? 'endpoint' : 'range', input: null, changed: false, active: false};
+      lower: Number(lo.value), upper: Number(hi.value), kind: endpoint ? 'endpoint' : 'range', input: null, changed: false, active: false};
+    root.classList.add('is-dragging');
     root.setPointerCapture(event.pointerId);
-    if (overlap) (Number(hi.value) === max ? lo : hi).focus({preventScroll: true});
+    if (endpoint) (Math.abs(event.clientX - left) < Math.abs(event.clientX - right) ? lo : hi).focus({preventScroll: true});
   }, true);
   root.addEventListener('pointermove', (event) => {
     if (!drag || event.pointerId !== drag.id) return;
@@ -1253,11 +1364,8 @@ function climateChart(monthly, width = 720) {
   const left = compact ? 28 : 40, right = width - (compact ? 42 : 46), top = 48, bottom = 262;
   const step = (right - left) / 12;
   const barWidth = Math.min(28, step * 0.7);
-  const temps = monthly.flatMap((month) => [month.tmax, month.tmin]).filter(Number.isFinite);
-  const low = Math.floor(Math.min(0, ...temps) / 5) * 5;
-  const high = Math.max(low + 10, Math.ceil(Math.max(30, ...temps) / 5) * 5);
-  const rainStep = Math.max(50, Math.ceil(Math.max(0, ...monthly.map((month) => month.precip ?? 0)) / 4 / 50) * 50);
-  const rainMax = rainStep * 4;
+  const low = 0, high = 40;
+  const rainStep = 100, rainMax = 500;
   const tempY = (value) => bottom - (value - low) / (high - low) * (bottom - top);
   const rainY = (value) => bottom - value / rainMax * (bottom - top);
   const x = (index) => left + (index + 0.5) * step;
@@ -1286,6 +1394,31 @@ function climateChart(monthly, width = 720) {
     });
   }
   return markup + `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/><text class="axis-title" x="${(left + right) / 2}" y="305" text-anchor="middle">月份</text>`;
+}
+
+function windChart(monthly, width = 720) {
+  const compact = width < 400;
+  const left = compact ? 28 : 40, right = width - (compact ? 42 : 46), top = 34, bottom = 186;
+  const step = (right - left) / 12;
+  const tickStep = 10, maximum = 50;
+  const x = (index) => left + (index + 0.5) * step;
+  const y = (value) => bottom - value / maximum * (bottom - top);
+  let markup = '<text class="axis-title" x="8" y="17">日最大風速月平均（km/h）</text>';
+  for (let tick = 0; tick <= maximum; tick += tickStep) {
+    markup += `<line class="gridline" x1="${left}" x2="${right}" y1="${y(tick)}" y2="${y(tick)}"/><text x="${left - 10}" y="${y(tick) + 4}" text-anchor="end">${tick}</text>`;
+  }
+  let segment = false, path = '';
+  monthly.forEach((month, index) => {
+    if (!Number.isFinite(month.wind)) { segment = false; return; }
+    path += `${segment ? 'L' : 'M'}${x(index)} ${y(month.wind)} `;
+    segment = true;
+  });
+  markup += `<path d="${path}" fill="none" stroke="#3155BA" stroke-width="2.5"/>`;
+  monthly.forEach((month, index) => {
+    if (Number.isFinite(month.wind)) markup += `<circle cx="${x(index)}" cy="${y(month.wind)}" r="3" fill="#3155BA" stroke="white"><title>${MONTHS[index]}日最大風速平均 ${month.wind.toFixed(1)} km/h；${month.validYears.wind} 年有效</title></circle>`;
+    markup += `<text x="${x(index)}" y="${bottom + 19}" text-anchor="middle">${index + 1}</text>`;
+  });
+  return markup + `<line class="axis" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/><text class="axis-title" x="${(left + right) / 2}" y="225" text-anchor="middle">月份</text>`;
 }
 
 async function fetchData(url, kind) {
@@ -1317,13 +1450,22 @@ async function loadClimate(files, meta, progress = () => {}, decompress = global
   } else {
     progress('正在下載原始氣候資料…');
   }
-  const response = await fetchData(files.climate, 'response');
-  return validateClimate(await response.arrayBuffer(), meta);
+  const urls = Array.isArray(files.climate) ? files.climate : [files.climate];
+  const parts = await Promise.all(urls.map(async (url) => {
+    const response = await fetchData(url, 'response');
+    return response.arrayBuffer();
+  }));
+  if (parts.length === 1) return validateClimate(parts[0], meta);
+  const combined = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
+  let offset = 0;
+  for (const part of parts) { combined.set(new Uint8Array(part), offset); offset += part.byteLength; }
+  return validateClimate(combined.buffer, meta);
 }
 
 function setMainReady(ready) {
   $('app').setAttribute('aria-busy', String(!ready));
   $('condition-controls').disabled = !ready;
+  $('year-period').disabled = !ready;
   for (const element of document.querySelectorAll('.tools button, #town-select, .region-filters input, [data-sort]')) element.disabled = !ready;
   $('map').tabIndex = ready ? 0 : -1;
 }
@@ -1472,16 +1614,20 @@ function boot(meta, geo, buffer) {
   let selected = restored.state.town;
   let recommendPending = !selected;
   let shareRequest = 0;
+  let shareOpenRequest = 0;
   let shareContext = null;
   let imageFile = null;
   let imageUrl = null;
   let computedKey = null;
+  let pendingKey = null;
+  let pendingCalculation = null;
+  let renderRequest = 0;
   let resultsReady = false;
   let scores = [];
   let monthScores = [];
   let timer = 0;
   let weather = null;
-  let climateByTown = new Map();
+  const climateByTown = new Map();
   let lastClimateTown = null;
   let weatherLoading = false;
   let rankingRows = [];
@@ -1489,12 +1635,13 @@ function boot(meta, geo, buffer) {
   let sortDirection = 'descending';
   const regionInputs = [...document.querySelectorAll('input[name="region"]')];
   const rankingItems = new Map();
-  const temperature = bindTemperatureControls((announce) => announce ? render(true, true) : schedule(false));
+  const computer = ClimateCompute.createClient({planes, months, years: meta.years, nCells, nDays, rainLevels: RAIN_LEVELS}, {workerURL: COMPUTE_FILE});
+  const temperature = bindTemperatureControls((announce) => announce ? render(true, true) : schedule(false), resumeCalculation);
 
   function snapshot() {
     const range = (name, loId, hiId) => ({mode: document.querySelector(`input[name="${name}-mode"]:checked`).value, lo: readNumber($(loId)), hi: readNumber($(hiId))});
     return {
-      town: selected,
+      town: selected, period: $('year-period').value,
       temperature: {mode: temperature.mode, basic: {...temperature.basic}, advanced: {...temperature.advanced}},
       rain: range('rain', 'rain-lo', 'rain-hi'), sun: range('sun', 'sun-min', 'sun-max'), wind: range('wind', 'wind-min', 'wind-max'),
       regions: regionInputs.filter((input) => input.checked).map((input) => input.value), sort: sortKey, direction: sortDirection,
@@ -1506,6 +1653,15 @@ function boot(meta, geo, buffer) {
   }
 
   function applyState(state) {
+    // 舊連結的期間仍可顯示，但不重新加入一般可選項目。
+    if (state.period === '1991-2020' && !$('year-period').querySelector('option[value="1991-2020"]')) {
+      const option = document.createElement('option');
+      option.value = state.period;
+      option.textContent = '1991–2020（舊連結）';
+      option.hidden = true;
+      $('year-period').append(option);
+    }
+    $('year-period').value = state.period;
     temperature.restore(state.temperature);
     for (const [name, loId, hiId] of [['rain', 'rain-lo', 'rain-hi'], ['sun', 'sun-min', 'sun-max'], ['wind', 'wind-min', 'wind-max']]) {
       for (const radio of document.querySelectorAll(`input[name="${name}-mode"]`)) radio.checked = radio.value === state[name].mode;
@@ -1524,12 +1680,9 @@ function boot(meta, geo, buffer) {
     return Number(input.value);
   }
 
-  function decTemp(quantum) {
-    return quantum === 255 ? null : quantum / 2 - 40;
-  }
-
   function readControls() {
     return {
+      ...periodBounds(meta, $('year-period').value),
       tempLo: temperature[temperature.mode].lo,
       tempHi: temperature[temperature.mode].hi,
       rainMode: document.querySelector('input[name="rain-mode"]:checked').value,
@@ -1544,38 +1697,29 @@ function boot(meta, geo, buffer) {
     };
   }
 
-  function dayOk(controls, cell, day) {
-    const base = cell * nDays + day;
-    const high = decTemp(planes[0][base]);
-    const low = decTemp(planes[1][base]);
-    const rain = controls.rainMode === 'any' ? null : weather.grids[weather.cellGrid[cell]].rain[day];
-    const sun = planes[4][base] === 255 ? null : planes[4][base] / 2;
-    const wind = planes[5][base] === 255 ? null : planes[5][base];
-    return matchesDay(high, low, rain, sun, wind, controls);
+  function invalidateCalculation() {
+    renderRequest++;
+    computer.cancel();
+    pendingKey = null;
+    pendingCalculation = null;
+    resultsReady = false;
+    $('compute-status').textContent = computedKey === null ? '正在計算舒適天數…' : '更新中，暫顯示上次結果。';
   }
 
-  function compute() {
-    const controls = readControls();
-    const key = effectiveConditions(controls);
-    if (computedKey === key) return;
-    scores = new Array(nCells);
-    monthScores = new Array(nCells);
-    for (let cell = 0; cell < nCells; cell += 1) {
-      let matched = 0;
-      const byMonth = new Uint16Array(12);
-      for (let day = 0; day < nDays; day += 1) {
-        if (!dayOk(controls, cell, day)) continue;
-        matched += 1;
-        byMonth[months[day] - 1] += 1;
-      }
-      scores[cell] = matched / meta.years;
-      monthScores[cell] = Array.from(byMonth, (count) => count / meta.years);
+  function compute(controls, key) {
+    if (pendingKey !== key || !pendingCalculation) {
+      pendingKey = key;
+      pendingCalculation = computer.calculate(controls);
     }
-    computedKey = key;
+    return pendingCalculation;
   }
 
   function paintReads() {
     paintTemperature();
+    const period = periodBounds(meta, $('year-period').value);
+    $('matching-period').textContent = `${period.label} 年平均`;
+    $('climate-period').textContent = `${period.label} 年月平均，不隨舒適條件篩選。`;
+    $('climate-caption').textContent = `${period.label} 年各月氣候統計；只納入資料完整的年月。`;
     for (const [key, unit] of [['sun', '小時'], ['wind', 'km/h']]) {
       const lo = $(`${key}-min`), hi = $(`${key}-max`);
       $(`${key}-read`).textContent = `${lo.value}~${hi.value} ${unit}`;
@@ -1658,6 +1802,20 @@ function boot(meta, geo, buffer) {
     document.querySelector('.ranking-scroll').scrollTop = 0;
   });
 
+  $('year-period').addEventListener('change', () => {
+    closeShareDialog();
+    lastClimateTown = null;
+    render(true, true);
+  });
+
+  function selectedClimate(town) {
+    if (!weather) return null;
+    const period = $('year-period').value;
+    const key = `${town.code}:${period}`;
+    if (!climateByTown.has(key)) climateByTown.set(key, {monthly: monthlyForPeriod(meta, planes, weather, town.cell, periodBounds(meta, period))});
+    return climateByTown.get(key);
+  }
+
   function drawChart(id, height, draw) {
     const chart = $(id);
     const width = chart.parentElement.getBoundingClientRect().width;
@@ -1667,21 +1825,26 @@ function boot(meta, geo, buffer) {
     const scroll = chart.parentElement;
     const overflows = chart.scrollWidth > scroll.clientWidth;
     scroll.tabIndex = overflows ? 0 : -1;
-    scroll.setAttribute('aria-label', `${id === 'months' ? '每月舒適天數圖' : '氣溫雨量圖'}${overflows ? '，可水平捲動' : ''}`);
+    const label = {months: '每月舒適天數圖', 'climate-chart': '氣溫雨量圖', 'wind-chart': '每月風速圖'}[id];
+    scroll.setAttribute('aria-label', `${label}${overflows ? '，可水平捲動' : ''}`);
   }
 
   function redrawCharts() {
     const town = townByCode.get(selected);
     if (!town || !monthScores[town.cell]) return;
     drawChart('months', 270, (width) => matchingChart(monthScores[town.cell], width));
-    const climate = climateByTown.get(town.code);
-    if (climate) drawChart('climate-chart', 310, (width) => climateChart(climate.monthly, width));
+    const climate = selectedClimate(town);
+    if (climate) {
+      drawChart('climate-chart', 310, (width) => climateChart(climate.monthly, width));
+      drawChart('wind-chart', 230, (width) => windChart(climate.monthly, width));
+    }
   }
 
   function showTown() {
     const town = townByCode.get(selected);
     $('town-prompt').hidden = Boolean(town) && resultsReady;
-    $('town-prompt').textContent = resultsReady ? '點選地圖、表格或上方選單，查看鄉鎮的每月天數與氣候。' : '目前降雨條件需要雨量資料；載入完成或重試成功後才會顯示結果。';
+    $('town-prompt').textContent = resultsReady ? '點選地圖、表格或上方選單，查看鄉鎮的每月天數與氣候。'
+      : !weather && readControls().rainMode !== 'any' ? '目前降雨條件需要雨量資料；載入完成或重試成功後才會顯示結果。' : '舒適天數更新中…';
     $('place-lead').hidden = !town;
     $('annual').hidden = !town || !resultsReady;
     $('matching-section').hidden = !town || !resultsReady;
@@ -1690,6 +1853,7 @@ function boot(meta, geo, buffer) {
       $('place-days').textContent = '';
       $('months').replaceChildren();
       $('climate-chart').replaceChildren();
+      $('wind-chart').replaceChildren();
       $('climate-table').replaceChildren();
       lastClimateTown = null;
       select.value = '';
@@ -1706,26 +1870,34 @@ function boot(meta, geo, buffer) {
       $('place-days').textContent = '';
       $('months').replaceChildren();
     }
-    if (lastClimateTown === town.code) return;
-    const climate = climateByTown.get(town.code);
+    const climateKey = `${town.code}:${$('year-period').value}`;
+    if (lastClimateTown === climateKey) return;
+    const climate = selectedClimate(town);
     $('climate-content').hidden = !climate;
     $('climate-message').hidden = Boolean(climate);
     if (!climate) {
       $('climate-message').textContent = weatherLoading ? '月氣候資料載入中…' : '月氣候資料尚未載入，請使用條件面板的「重試載入」。';
       return;
     }
-    lastClimateTown = town.code;
+    lastClimateTown = climateKey;
     drawChart('climate-chart', 310, (width) => climateChart(climate.monthly, width));
+    drawChart('wind-chart', 230, (width) => windChart(climate.monthly, width));
+    $('wind-chart').setAttribute('aria-label', `各月日最大風速的平均。${climate.monthly.map((month, index) => `${MONTHS[index]} ${month.wind === null ? '缺值' : month.wind.toFixed(1) + ' km/h'}`).join('；')}`);
     const number = (value) => value === null ? '—' : value.toFixed(1);
     $('climate-table').innerHTML = climate.monthly.map((month, index) => `<tr><th scope="row">${index + 1}月</th><td>${number(month.tmax)}</td><td>${number(month.tmin)}</td><td>${number(month.precip)}</td><td>${month.validYears.tmax}／${month.validYears.tmin}／${month.validYears.precip}</td></tr>`).join('');
   }
 
-  function render(announce, selectBest = false) {
+  async function render(announce, selectBest = false) {
     window.clearTimeout(timer);
     timer = 0;
     paintReads();
     if (selectBest) recommendPending = true;
-    if (!weather && readControls().rainMode !== 'any') {
+    const request = ++renderRequest;
+    const controls = readControls();
+    const key = effectiveConditions(controls);
+    if (!weather && controls.rainMode !== 'any') {
+      invalidateCalculation();
+      $('compute-status').textContent = '';
       resultsReady = false;
       scores = [];
       monthScores = [];
@@ -1741,8 +1913,25 @@ function boot(meta, geo, buffer) {
       showTown();
       return;
     }
-    compute();
+    if (computedKey !== key) {
+      resultsReady = false;
+      $('live').textContent = '正在更新舒適天數…';
+      $('compute-status').textContent = computedKey === null ? '正在計算舒適天數…' : '更新中，暫顯示上次結果。';
+      const result = await compute(controls, key);
+      if (request !== renderRequest || key !== effectiveConditions(readControls())) return;
+      pendingKey = null;
+      pendingCalculation = null;
+      if (!result) {
+        $('live').textContent = '計算未完成，請調整條件或重新整理後重試。';
+        $('compute-status').textContent = $('live').textContent;
+        return;
+      }
+      scores = result.scores;
+      monthScores = result.monthScores;
+      computedKey = key;
+    }
     resultsReady = true;
+    $('compute-status').textContent = '';
     for (const town of meta.towns) {
       const path = paths.get(town.code);
       if (!path) continue;
@@ -1776,13 +1965,24 @@ function boot(meta, geo, buffer) {
 
   function schedule(announce) {
     window.clearTimeout(timer);
-    timer = window.setTimeout(() => render(announce, true), 40);
+    invalidateCalculation();
+    // 拖曳期間只更新控制項；放開後的 change 立即送出最後條件。
+    timer = window.setTimeout(() => {
+      timer = 0;
+      if (!document.querySelector('.dual.is-dragging')) return render(announce, true);
+    }, 160);
+  }
+
+  function resumeCalculation(changed, confirm) {
+    if (confirm && !changed && (timer || !resultsReady)) render(true, true);
   }
 
   function choose(code) {
     cancelCamera();
     selected = code;
     recommendPending = false;
+    for (const path of paths.values()) path.classList.toggle('is-selected', path.dataset.code === selected);
+    if (!resultsReady) showTown();
     render(false);
     const path = paths.get(code);
     if (path) centerTown(path);
@@ -1802,6 +2002,7 @@ function boot(meta, geo, buffer) {
     lo.addEventListener('change', () => render(true, true));
     hi.addEventListener('change', () => render(true, true));
     const controller = bindDualPointer(lo, hi, lo.parentElement, {
+      onEnd: resumeCalculation,
       onRange: (lower, upper, confirm) => {
         lo.value = String(lower);
         hi.value = String(upper);
@@ -1842,7 +2043,7 @@ function boot(meta, geo, buffer) {
       const response = await fetch(DATA_FILES.weather);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       weather = validateWeather(await response.json(), meta);
-      climateByTown = new Map(weather.towns.map((town) => [town.code, town]));
+      climateByTown.clear();
       $('weather-status').hidden = true;
     } catch (error) {
       weather = null;
@@ -1855,8 +2056,10 @@ function boot(meta, geo, buffer) {
       $('weather-retry').disabled = false;
       lastClimateTown = null;
       computedKey = null;
+      invalidateCalculation();
+      computer.setWeather(weather);
       syncModes();
-      render(true);
+      await render(true);
     }
   }
   $('weather-retry').addEventListener('click', refreshWeather);
@@ -1883,6 +2086,7 @@ function boot(meta, geo, buffer) {
     for (const id of ['share-link-option', 'share-image-option']) $(id).setAttribute('aria-pressed', 'false');
   }
   function closeShareDialog() {
+    shareOpenRequest++;
     shareContext = null;
     clearShareOutput();
     if (shareDialog.open) shareDialog.close();
@@ -1894,12 +2098,14 @@ function boot(meta, geo, buffer) {
   });
   $('share-close').addEventListener('click', closeShareDialog);
 
-  $('share-conditions').addEventListener('click', () => {
+  $('share-conditions').addEventListener('click', async () => {
     if (temperature.mode === 'advanced' && ['lo', 'hi'].some((key) => $(`temperature-${key}-number`).getAttribute('aria-invalid') === 'true')) {
       $('share-notice').textContent = '請先修正氣溫輸入，再分享我的條件。';
       return;
     }
-    if (timer) render(false, true);
+    const opening = ++shareOpenRequest;
+    await render(false, Boolean(timer));
+    if (opening !== shareOpenRequest) return;
     const state = snapshot(), town = townByCode.get(state.town);
     shareContext = {
       state, town: town ? {code: town.code, name: town.name} : null,
@@ -1948,11 +2154,11 @@ function boot(meta, geo, buffer) {
     try {
       const blob = await renderShareImage(card);
       if (request !== shareRequest) return;
-      const filename = `taiwan-comfort-map-${card.town.code}.png`;
+      const filename = `taiwan-comfort-map-${card.town.code}-${card.state.period}.png`;
       imageFile = new File([blob], filename, {type: 'image/png'});
       imageUrl = URL.createObjectURL(blob);
       $('share-preview').setAttribute('src', imageUrl);
-      $('share-preview').setAttribute('alt', `${card.town.name}每年約 ${card.days.toFixed(1)} 天符合條件，附全台舒適度地圖與設定。`);
+      $('share-preview').setAttribute('alt', `${card.state.period.replace('-', '–')} 年，${card.town.name}每年約 ${card.days.toFixed(1)} 天符合條件，附全台舒適度地圖與設定。`);
       $('share-preview').hidden = false;
       $('share-image-download').setAttribute('href', imageUrl);
       $('share-image-download').setAttribute('download', filename);
@@ -2095,11 +2301,13 @@ function boot(meta, geo, buffer) {
   resizeObserver.observe($('tmax-dual'));
   resizeObserver.observe($('months').parentElement);
   resizeObserver.observe($('climate-chart').parentElement);
+  resizeObserver.observe($('wind-chart').parentElement);
   refreshWeather();
 }
 
 load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError);
 $('main-retry').addEventListener('click', () => load().then(([meta, geo, buffer]) => boot(meta, geo, buffer)).catch(showError));
+updateGitHubStars();
 </script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"dc79f72e90aa4f83a5d4f5d241e0681b"}'></script>
 </body>

@@ -1,0 +1,61 @@
+{
+  "desktop": [
+    {
+      "input": "tmax-dual",
+      "event": "pointerup",
+      "domMs": 119.20000004768372,
+      "frameMs": 138
+    },
+    {
+      "input": "tmax-dual",
+      "event": "pointerup",
+      "domMs": 97.20000004768372,
+      "frameMs": 114.89999997615814
+    },
+    {
+      "input": "sun-dual",
+      "event": "pointerup",
+      "domMs": 78.39999997615814,
+      "frameMs": 95.79999995231628
+    },
+    {
+      "input": "rain-mode",
+      "event": "pointerup",
+      "domMs": 58.89999997615814,
+      "frameMs": 1142.2999999523163
+    },
+    {
+      "input": "wind-mode",
+      "event": "pointerup",
+      "domMs": 108.20000004768372,
+      "frameMs": 133.70000004768372
+    },
+    {
+      "input": "wind-dual",
+      "event": "pointerup",
+      "domMs": 115.29999995231628,
+      "frameMs": 153.79999995231628
+    }
+  ],
+  "mobile375": [
+    {
+      "input": "tmax-dual",
+      "event": "pointerup",
+      "domMs": 95.10000002384186,
+      "frameMs": 100.30000007152557
+    },
+    {
+      "input": "rain-mode",
+      "event": "pointerup",
+      "domMs": 93.29999995231628,
+      "frameMs": 138.10000002384186
+    },
+    {
+      "input": "rain-dual",
+      "event": "pointerup",
+      "domMs": 26,
+      "frameMs": 57.799999952316284
+    }
+  ],
+  "measurement": "capture pointerup/change to compute-status clear after synchronous DOM updates; frameMs is two requestAnimationFrame callbacks and may be affected by automation scheduling; desktop Chrome, not a physical handset"
+}

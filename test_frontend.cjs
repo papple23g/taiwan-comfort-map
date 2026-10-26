@@ -6,9 +6,80 @@ const vm = require('node:vm');
 const html = fs.readFileSync(`${__dirname}/index.html`, 'utf8');
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 new vm.Script(script);
-const scope = vm.createContext({Event, document: {getElementById: () => ({})}});
+const ClimateCompute = require('./climate-compute.js');
+const scope = vm.createContext({Event, ClimateCompute, document: {getElementById: () => ({})}});
 vm.runInContext(script.slice(0, script.indexOf('\nload().then(')), scope);
 const controls = {tempLo: 20, tempHi: 28, rainMode: 'wet', rainLo: 0, rainHi: 4, useSun: false, sunMin: 6, sunMax: 12, useWind: false, windMin: 5, windMax: 30};
+
+test('calendar periods use full inclusive years and retain leap days', () => {
+  const meta = {start: '1991-01-01', days: 12784};
+  for (const [period, days, years] of [['2023-2025', 1096, 3], ['2021-2025', 1826, 5], ['2016-2025', 3653, 10], ['1991-2020', 10958, 30], ['1991-2025', 12784, 35]]) {
+    const bounds = scope.periodBounds(meta, period);
+    assert.equal(bounds.endDay - bounds.startDay, days);
+    assert.equal(bounds.years, years);
+  }
+  assert.throws(() => scope.periodBounds(meta, '2024-2026'));
+  assert.throws(() => scope.periodBounds({start: '1991-01-01', days: 10958}, '2021-2025'));
+});
+
+test('monthly climate weights complete year-months equally and preserves independent missing fields', () => {
+  const days = 1096, meta = {start: '2023-01-01', days};
+  const high = new Uint8Array(days).fill(120), low = new Uint8Array(days).fill(100);
+  const rain = Array(days).fill(1);
+  high.fill(160, 365, 731);
+  let monthly = scope.monthlyForPeriod(meta, [high, low], {grids: [{rain}], cellGrid: [0]}, 0, scope.periodBounds(meta, '2023-2025'));
+  assert.equal(monthly[0].tmax, 80 / 3);
+  assert.equal(monthly[1].precip, 85 / 3);
+  assert.equal(monthly[1].validYears.precip, 3);
+  high[365 + 31] = 255;
+  rain[31] = null;
+  monthly = scope.monthlyForPeriod(meta, [high, low], {grids: [{rain}], cellGrid: [0]}, 0, scope.periodBounds(meta, '2023-2025'));
+  assert.equal(monthly[1].tmax, 20);
+  assert.equal(monthly[1].tmin, 10);
+  assert.equal(monthly[1].precip, 28.5);
+  assert.deepEqual(JSON.parse(JSON.stringify(monthly[1].validYears)), {tmax: 2, tmin: 3, precip: 2, wind: 0});
+  rain.fill(null);
+  assert.equal(scope.monthlyForPeriod(meta, [high, low], {grids: [{rain}], cellGrid: [0]}, 0, scope.periodBounds(meta, '2023-2025'))[0].precip, null);
+});
+
+test('monthly wind averages complete year-months equally, isolates cells and preserves missing or zero values', () => {
+  const days = 1096, meta = {start: '2023-01-01', days};
+  const high = new Uint8Array(days * 2).fill(120), low = new Uint8Array(days * 2).fill(100);
+  const wind = new Uint8Array(days * 2).fill(0);
+  wind.fill(20, days);
+  wind.fill(40, days + 365 + 31, days + 365 + 31 + 29);
+  const planes = [high, low, null, null, null, wind];
+  const weather = {grids: [{rain: Array(days).fill(1)}], cellGrid: [0, 0]};
+  const bounds = scope.periodBounds(meta, '2023-2025');
+  let monthly = scope.monthlyForPeriod(meta, planes, weather, 1, bounds);
+  assert.equal(monthly[1].wind, 80 / 3);
+  assert.equal(monthly[1].validYears.wind, 3);
+  wind[days + 31] = 255;
+  monthly = scope.monthlyForPeriod(meta, planes, weather, 1, bounds);
+  assert.equal(monthly[1].wind, 30);
+  assert.equal(monthly[1].validYears.wind, 2);
+  assert.equal(monthly[1].validYears.tmax, 3);
+  assert.equal(scope.monthlyForPeriod(meta, planes, weather, 0, bounds)[1].wind, 0);
+  wind.fill(255);
+  assert.equal(scope.monthlyForPeriod(meta, planes, weather, 1, bounds)[1].wind, null);
+});
+
+test('wind line chart leaves missing gaps, renders zero and fits narrow canvases', () => {
+  const monthly = Array.from({length: 12}, () => ({wind: null, validYears: {wind: 0}}));
+  monthly[0] = {wind: 0, validYears: {wind: 5}};
+  monthly[2] = {wind: 26.5, validYears: {wind: 4}};
+  for (const width of [243, 298, 375, 720]) {
+    const markup = scope.windChart(monthly, width);
+    assert.match(markup, /日最大風速月平均（km\/h）/);
+    assert.match(markup, /d="M[^L"]+ M/);
+    assert.doesNotMatch(markup, /NaN|undefined|stroke-dasharray|<select|<button/);
+    assert.equal([...markup.matchAll(/<circle /g)].length, 2);
+    for (const match of markup.matchAll(/<circle cx="([\d.]+)"/g)) assert(Number(match[1]) >= 0 && Number(match[1]) <= width);
+    assert.match(markup, /1月日最大風速平均 0.0 km\/h；5 年有效/);
+    assert.match(markup, />12<\/text>/);
+  }
+  assert.doesNotMatch(scope.windChart(Array.from({length: 12}, () => ({wind: null}))), /NaN|undefined|<circle/);
+});
 
 test('sunlight and wind ranges include both bounds, allow equality and ignore inactive ranges', () => {
   const active = {...controls, useSun: true, useWind: true, sunMin: 6.5, sunMax: 8, windMin: 10, windMax: 30};
@@ -184,6 +255,27 @@ test('climate chart leaves missing data gaps and retains both labelled axes', ()
   assert.match(markup, /d="M[^L"]+ M/);
 });
 
+test('chart axes and equal-value positions stay fixed for different towns, periods and missing data', () => {
+  const labels = (markup, x) => [...markup.matchAll(new RegExp(`<text x="${x}" y="[^"]+"(?: text-anchor="end")?>([\\d.]+)</text>`, 'g'))].map(match => Number(match[1]));
+  const low = Array.from({length: 12}, () => ({tmax: 20, tmin: 10, precip: 100, wind: 20, validYears: {wind: 3}}));
+  const high = low.map((month, index) => index === 0 ? month : {tmax: 35.32, tmin: 0.45, precip: 439.38, wind: 44.68, validYears: {wind: 35}});
+  const missing = Array.from({length: 12}, () => ({tmax: null, tmin: null, precip: null, wind: null}));
+  for (const width of [243, 375, 720]) {
+    const left = width < 400 ? 28 : 40, right = width - (width < 400 ? 42 : 46);
+    for (const monthly of [low, high, missing]) {
+      const climate = scope.climateChart(monthly, width), wind = scope.windChart(monthly, width);
+      assert.deepEqual(labels(climate, left - 10), [0, 5, 10, 15, 20, 25, 30, 35, 40]);
+      assert.deepEqual(labels(climate, right + 10), [0, 100, 200, 300, 400, 500]);
+      assert.deepEqual(labels(wind, left - 10), [0, 10, 20, 30, 40, 50]);
+      assert.doesNotMatch(climate + wind, /NaN|undefined/);
+    }
+    for (const draw of [scope.climateChart, scope.windChart]) {
+      const firstY = monthly => draw(monthly, width).match(/<circle[^>]+cy="([^"]+)"/)[1];
+      assert.equal(firstY(low), firstY(high));
+    }
+  }
+});
+
 test('temperature range and accessible values stay synchronized for decimals, extremes and equality', () => {
   const input = () => ({value: '', min: '-5', max: '35', attributes: {}, setAttribute(name, value) { this.attributes[name] = value; }});
   const elements = {'tmax-lo': input(), 'tmax-hi': input(), 'tmax-read': {}, 'tmax-dual': controlElement()};
@@ -292,7 +384,7 @@ function controlElement(value = '') {
 function temperatureHarness() {
   const elements = Object.fromEntries(['tmax-lo', 'tmax-hi', 'tmax-read', 'tmax-dual', 'temperature-lo-number', 'temperature-hi-number', 'temperature-lo-error', 'temperature-hi-error', 'temperature-numbers'].map((id) => [id, controlElement()]));
   const radios = [controlElement('basic'), controlElement('advanced')];
-  const context = vm.createContext({Event, document: {getElementById: (id) => elements[id], querySelectorAll: () => radios}});
+  const context = vm.createContext({Event, ClimateCompute, document: {getElementById: (id) => elements[id], querySelectorAll: () => radios}});
   vm.runInContext(script.slice(0, script.indexOf('\nload().then(')), context);
   const updates = [];
   const state = context.bindTemperatureControls((announce) => updates.push(announce));
@@ -413,7 +505,7 @@ test('overlap dragging respects crossing limits and cancels without blocking ver
   assert.equal(updates.at(-1), 'change');
 });
 
-test('nearby endpoints use the closest handle; separated, disabled and secondary pointers keep native behavior', () => {
+test('nearby and separated endpoints share pointer handling; disabled and secondary pointers are ignored', () => {
   for (const endpoint of ['lo', 'hi']) {
     const {lo, hi, root, position} = overlapHarness(15, 35, 0.5, 25, 26);
     const start = position(endpoint === 'lo' ? 25 : 26);
@@ -424,7 +516,9 @@ test('nearby endpoints use the closest handle; separated, disabled and secondary
     assert.equal(endpoint === 'lo' ? Number(hi.value) : Number(lo.value), endpoint === 'lo' ? 26 : 25);
   }
   const {lo, root} = overlapHarness(15, 35, 0.5, 15, 35);
-  assert.equal(root.fire('pointerdown', {clientX: 111}), false);
+  assert.equal(root.fire('pointerdown', {clientX: 111}), true);
+  assert.equal(root.hasPointerCapture(1), true);
+  root.fire('pointerup');
   const near = overlapHarness(15, 35, 0.5, 25);
   assert.equal(near.root.fire('pointerdown', {clientX: 111}), false);
   assert.equal(near.root.fire('pointerdown', {clientX: 211, isPrimary: false}), false);
@@ -535,8 +629,11 @@ test('narrow ranges and equality keep endpoint priority; separated endpoint hit 
   }
   const result = rangeHarness(15, 35, 0.5, 20, 28);
   for (const point of [result.position(20) + 10.9, result.position(28) - 10.9]) {
-    assert.equal(result.root.fire('pointerdown', {clientX: point}), false);
-    assert.equal(result.root.hasPointerCapture(1), false);
+    assert.equal(result.root.fire('pointerdown', {clientX: point}), true);
+    assert.equal(result.root.hasPointerCapture(1), true);
+    result.root.fire('pointermove', {clientX: point + 5});
+    result.root.fire('pointerup');
+    assert.deepEqual(result.rangeUpdates, []);
   }
 });
 
@@ -607,7 +704,7 @@ test('advanced range movement preserves decimal pairs and mode memory, allows su
 
 function weatherPairHarness() {
   const elements = {};
-  const specs = [['rain', 'rain-lo', 'rain-hi', 0, 4, 1, 0, 1], ['sun', 'sun-min', 'sun-max', 1, 12, 0.5, 1, 3], ['wind', 'wind-min', 'wind-max', 5, 70, 1, 10, 20]];
+  const specs = [['rain', 'rain-lo', 'rain-hi', 0, 4, 1, 0, 1], ['sun', 'sun-min', 'sun-max', 1, 12, 0.5, 1, 5], ['wind', 'wind-min', 'wind-max', 5, 70, 1, 10, 30]];
   for (const [name, lowId, highId, min, max, step, lower, upper] of specs) {
     const root = elements[`${name}-dual`] = controlElement();
     const pair = [lower, upper].map((value) => Object.assign(controlElement(String(value)), {min: String(min), max: String(max), step: String(step), parentElement: root}));
@@ -620,6 +717,7 @@ function weatherPairHarness() {
     $: (id) => elements[id], clampRange: scope.clampRange, bindDualPointer: scope.bindDualPointer, weather: {},
     paintReads() { paints.push(specs.map(([, low, high]) => [Number(elements[low].value), Number(elements[high].value)])); },
     schedule(announce) { updates.push(['schedule', announce]); }, render(announce, best) { updates.push(['render', announce, best]); },
+    resumeCalculation() {},
     readControls: () => controls,
   });
   vm.runInContext(script.slice(script.indexOf('  const pairControllers = []'), script.indexOf('  for (const radio of document.querySelectorAll(\'.segments input:not(')), context);
@@ -674,6 +772,9 @@ function recommendationHarness() {
   let timerId = 0, cancellations = 0;
   const state = vm.createContext({
     selected: '', timer: null, rankingRows: [], scores: [25, 75, 150], meta: {towns}, weather: {},
+    computedKey: 'cached', renderRequest: 0, resultsReady: true,
+    effectiveConditions: () => 'cached', document: {querySelector: () => null},
+    invalidateCalculation() { state.renderRequest++; state.resultsReady = false; },
     regionInputs: ['北部', '南部'].map((value) => ({value, checked: true})),
     paths: new Map(towns.map((town) => [town.code, {dataset: {code: town.code}, setAttribute() {},
       classList: {toggle(name, active) { highlights.set(town.code, active); }}}])),
@@ -683,7 +784,7 @@ function recommendationHarness() {
     cancelCamera() { cancellations++; }, centerTown(path) { centered.push(path.dataset.code); },
     window: {clearTimeout(id) { timers.delete(id); }, setTimeout(callback) { timers.set(++timerId, callback); return timerId; }}
   });
-  const block = script.slice(script.indexOf('  function render('), script.indexOf('  function bindPair('));
+  const block = script.slice(script.indexOf('  async function render('), script.indexOf('  function bindPair('));
   vm.runInContext(block, state);
   return {state, shown, centered, highlights, timers, live, get cancellations() { return cancellations; }, flush() {
     const callbacks = [...timers.values()];
@@ -729,6 +830,35 @@ test('manual township choices survive pending work and redraws until the next co
   result.flush();
   assert.equal(state.selected, 'south');
   assert.deepEqual(centered, ['north-low']);
+});
+
+test('releasing an unmoved handle resumes an earlier input deferred while a pointer was held', () => {
+  const result = recommendationHarness(), {state} = result;
+  state.render(false, true);
+  state.schedule(false);
+  state.document.querySelector = () => ({});
+  result.flush();
+  assert.equal(state.timer, 0);
+  assert.equal(state.resultsReady, false);
+  state.document.querySelector = () => null;
+  state.resumeCalculation(false, true);
+  assert.equal(state.resultsReady, true);
+  assert.equal(state.selected, 'south');
+});
+
+test('44px endpoint hit boxes use the same center formula and finish without requiring a value change', () => {
+  const lo = Object.assign(controlElement('20'), {min: '15', max: '35', step: '0.5'});
+  const hi = Object.assign(controlElement('28'), {min: '15', max: '35', step: '0.5'});
+  const root = controlElement(), endings = [];
+  scope.bindDualPointer(lo, hi, root, {onEnd: (changed, confirm) => endings.push([changed, confirm])});
+  for (const pointerType of ['mouse', 'touch', 'pen']) {
+    const start = 111 + (20 - 15) / 20 * 200 + 21.5;
+    assert.equal(root.fire('pointerdown', {clientX: start, pointerType}), true);
+    assert.equal(root.classList.contains('is-dragging'), true);
+    root.fire('pointerup', {pointerType});
+    assert.equal(root.classList.contains('is-dragging'), false);
+  }
+  assert.deepEqual(endings, [[false, true], [false, true], [false, true]]);
 });
 
 test('automatic recommendation resolves zero-score ties consistently and clears when every region is unchecked', () => {

@@ -1,0 +1,75 @@
+{
+  "site": "https://comfort.papple23g.com/",
+  "verifiedAt": "2026-10-24T07:23:24.715Z",
+  "deploymentVersion": "82b94061-ef93-4847-af9b-76e3d9564ae8",
+  "htmlMatchesBuild": true,
+  "period": [
+    "1991-01-01",
+    "2025-12-31"
+  ],
+  "years": 35,
+  "days": 12784,
+  "allPublishedAssetsMatchBuild": true,
+  "rawPartsMatchOriginal": true,
+  "gzipMatchesOriginal": true,
+  "climateSha256": "072094c2363cf144f31b3fab105ae5405afcbf276de5136f2d64e0f58ba26bb7",
+  "htmlSha256": "d46b8376e0bf97ffaa291522dd0c0504a10bb30f931b20b9ab734415a2148db0",
+  "assets": [
+    {
+      "name": "data/628a913755d003b8/meta.json",
+      "size": 97483,
+      "sha256": "5bbf53258926a0edefd42abba73c150bb3e1342a37593b8c3f9a29795f255d53",
+      "contentType": "application/json",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": "br"
+    },
+    {
+      "name": "data/628a913755d003b8/towns.geojson",
+      "size": 345906,
+      "sha256": "2897bc4f85e2f8c38a88a0f71eaeeeed27f3a13233f42fe9900a981de7a53c82",
+      "contentType": "application/geo+json",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": "br"
+    },
+    {
+      "name": "data/628a913755d003b8/weather-details.json",
+      "size": 2353402,
+      "sha256": "cf59e97a6bf5f3da25068b90d8b693ef88e22e95d8e42dbab46b7a8b081657fc",
+      "contentType": "application/json",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": "br"
+    },
+    {
+      "name": "data/628a913755d003b8/climate.bin.gz",
+      "size": 8889076,
+      "sha256": "5ef07c9c7ba197f235c5b39b8fa343fb1adbf86838f21801a2293583b7152248",
+      "contentType": "application/gzip",
+      "cacheControl": "public, max-age=31536000, immutable, no-transform",
+      "contentEncoding": null
+    },
+    {
+      "name": "data/628a913755d003b8/climate.part-1.bin",
+      "size": 26214400,
+      "sha256": "7f6c9b1728106086d1bfee931f3d67e922ab8485ddf49e111d8ee6806476a813",
+      "contentType": "application/octet-stream",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": null
+    },
+    {
+      "name": "data/628a913755d003b8/climate.part-2.bin",
+      "size": 2012688,
+      "sha256": "715514bc218635164e7b4dd309d17566896bbd62dd1a59d3b17bfda4c32efa78",
+      "contentType": "application/octet-stream",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": null
+    },
+    {
+      "name": "climate-compute.c43ced29d3eaf90f.js",
+      "size": 15265,
+      "sha256": "c43ced29d3eaf90f3e4edf69a8b3b0052e2dc5ab043547bed39af77b01991bb3",
+      "contentType": "text/javascript; charset=utf-8",
+      "cacheControl": "public, max-age=31536000, immutable",
+      "contentEncoding": "br"
+    }
+  ]
+}

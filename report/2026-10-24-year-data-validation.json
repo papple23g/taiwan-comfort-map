@@ -1,0 +1,47 @@
+{
+  "period": [
+    "1991-01-01",
+    "2025-12-31"
+  ],
+  "years": 35,
+  "days": 12784,
+  "towns": 368,
+  "grids": 28,
+  "appendedPeriod": [
+    "2021-01-01",
+    "2025-12-31"
+  ],
+  "appendedDays": 1826,
+  "historicalPackedValuesPreserved": true,
+  "historicalRawRainPreserved": true,
+  "representativePointsPreserved": true,
+  "townsPreserved": true,
+  "appendedPackedMissing": {
+    "tmax": 0,
+    "tmin": 0,
+    "dewpoint": 0,
+    "precip": 0,
+    "sunshine": 0,
+    "wind": 0
+  },
+  "appendedRawMissing": {
+    "T2M_MAX": 0,
+    "T2M_MIN": 0,
+    "T2MDEW": 0,
+    "PRECTOTCORR": 0,
+    "ALLSKY_SFC_SW_DWN": 0,
+    "CLRSKY_SFC_SW_DWN": 0,
+    "WS10M_MAX": 0
+  },
+  "rawUnits": {
+    "T2M_MAX": "C",
+    "T2M_MIN": "C",
+    "T2MDEW": "C",
+    "PRECTOTCORR": "mm/day",
+    "ALLSKY_SFC_SW_DWN": "kW-hr/m^2/day",
+    "CLRSKY_SFC_SW_DWN": "kW-hr/m^2/day",
+    "WS10M_MAX": "m/s"
+  },
+  "climateSha256": "072094c2363cf144f31b3fab105ae5405afcbf276de5136f2d64e0f58ba26bb7",
+  "historicalSha256": "4398724fbed4baaea2ccd86efd45c891a768a683fc0201b67c4ce89092385fc8"
+}
